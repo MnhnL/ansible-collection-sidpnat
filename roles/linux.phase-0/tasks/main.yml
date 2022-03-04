@@ -1,0 +1,27 @@
+---
+
+- name: Set hostname to one defined in host variable
+  hostname:
+    name: "{{ provisioning_hostname }}"
+
+- name: Set hostname in hostname file
+  lineinfile:
+    state: present
+    path: /etc/hostname
+    line: "{{ provisioning_hostname }}"
+
+- name: Set IP to the one defined in host variable
+  block:
+    - name: Put configuration in netplan config
+      template:
+        src: 01-netcfg.yaml.j2
+        dest: /etc/netplan/01-netcfg.yaml
+        owner: root
+        group: root
+      vars:
+        ip_address: "{{ provisioning_ip_address }}"
+        gateway: "{{ provisioning_gateway }}"
+        nameservers: "{{ provisioning_nameservers }}"
+
+    - name: Apply netplan config
+      command: netplan apply

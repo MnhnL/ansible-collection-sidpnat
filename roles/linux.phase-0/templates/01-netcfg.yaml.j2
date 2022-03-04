@@ -1,0 +1,11 @@
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ens160:
+      dhcp4: no
+      addresses:
+        - {{ ip_address }}/21
+      gateway4: {{ gateway }}
+      nameservers:
+        addresses: {{ nameservers }}

@@ -1,0 +1,14 @@
+---
+
+argument_specs:
+  main:
+    options:
+      domain:
+        type: str
+        required: yes
+        description: The domain to get the certificate for
+
+      email:
+        type: str
+        required: yes
+        description: The email of the administrative contact

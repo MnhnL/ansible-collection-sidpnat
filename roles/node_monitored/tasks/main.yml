@@ -1,0 +1,29 @@
+---
+
+- name: Install prometheus-node-exporter
+  apt:
+    name: prometheus-node-exporter
+    state: present
+
+- name: Install configuration file
+  template:
+    src: prometheus-node-exporter.j2
+    dest: /etc/default/prometheus-node-exporter
+
+- name: Run and enable prometheus-node-exporter
+  service:
+    name: prometheus-node-exporter
+    state: restarted
+    enabled: yes
+
+- name: Allow connections to prometheus-node-exporter exporter from monitoring machine
+  ufw:
+    rule: allow
+    state: reloaded
+    direction: in
+    to_port: "{{ node_monitored_listening_port }}"
+    from_ip: "{{ hostvars['monitoring']['ansible_default_ipv4']['address'] }}"
+    proto: tcp
+    comment: Prometheus exporter
+
+# consider installing https://github.com/ncabatoff/process-exporter

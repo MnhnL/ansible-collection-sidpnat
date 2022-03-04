@@ -1,0 +1,46 @@
+---
+
+# This role was written for Ubuntu Server LTS 20.04. The prerequisits are a
+# freshly installed server with a user provisioning with the password set as
+# defined in the vault variable vault_provisioning_user_password.
+- name: Accounts
+  block:
+    - name: Create admin users with empty passwords and add to sudo group
+      user:
+        state: present
+        name: '{{ item.name }}'
+        uid: '{{ item.uid }}'
+        comment: '{{ item.full_name }}'
+        shell: /usr/bin/bash
+        create_home: yes
+        groups: 'sudo'
+        append: yes
+      loop: '{{ admin_users }}'
+
+    - name: Allow sudo group member to use sudo without password
+      lineinfile:
+        path: /etc/sudoers
+        state: present
+        regexp: '^%sudo	ALL='
+        line: '%sudo	ALL=(ALL:ALL) NOPASSWD: ALL'
+        validate: /usr/sbin/visudo -cf %s
+
+- name: SSH
+  block:
+    - name: set up pubkey based auth by installing pubkeys
+      ansible.posix.authorized_key:
+        user: "{{ item.name }}"
+        state: present
+        key: "{{ item.pubkey }}"
+      loop: '{{ admin_users }}'
+
+    - name: switch off password based logins
+      lineinfile:
+        dest: /etc/ssh/sshd_config
+        regexp: "^#PasswordAuthentication"
+        line: PasswordAuthentication no
+
+    - name: reload sshd to apply password auth change
+      service:
+        name: sshd
+        state: reloaded

@@ -1,0 +1,12 @@
+# HTTP but will be converted to HTTPS by certbot later
+server {
+    server_name {{ grafana_server_name }};
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    # reverse proxy to IPT
+    location / {
+        proxy_pass http://localhost:3000/;
+        proxy_set_header Host $http_host; # https://grafana.com/blog/2022/02/08/grafana-7.5.15-and-8.3.5-released-with-moderate-severity-security-fixes/
+    }
+}

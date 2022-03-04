@@ -1,0 +1,11 @@
+---
+
+- name: Restart prometheus
+  service:
+    name: prometheus
+    state: restarted
+
+- name: Restart prometheus-blackbox-exporter
+  service:
+    name: prometheus-blackbox-exporter
+    state: restarted

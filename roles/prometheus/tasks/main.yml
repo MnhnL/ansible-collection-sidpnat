@@ -1,0 +1,34 @@
+---
+
+- name: Install prometheus from apt
+  apt:
+    name: prometheus
+    state: latest
+
+- name: Install blackbox_exporter from apt (monitor via http and icmp)
+  apt:
+    name: prometheus-blackbox-exporter
+    state: latest
+
+- name: Configure blackbox_exporter
+  template:
+    src: blackbox.yml.j2
+    dest: /etc/prometheus/blackbox.yml
+  notify: 'Restart prometheus-blackbox-exporter'
+
+- name: Enable blackbox_exporter
+  service:
+    name: prometheus-blackbox-exporter
+    enabled: yes
+
+- name: Configure prometheus to monitor "monitored" host group
+  template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+  notify: 'Restart prometheus'
+
+- name: Enable prometheus service
+  service:
+    name: prometheus
+    enabled: yes
+

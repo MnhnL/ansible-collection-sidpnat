@@ -1,0 +1,14 @@
+---
+
+- name: Ensure backup directory
+  file:
+    path: '{{ ipt_backup_dir }}'
+    state: directory
+
+- name: Create an archive from ipt data dir
+  community.general.archive:
+    path:
+      - '{{ ipt_data_dir }}*'
+      - '{{ ipt_data_dir }}.*'
+    dest: '{{ ipt_backup_file }}'
+    format: bz2

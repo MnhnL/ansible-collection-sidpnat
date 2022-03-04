@@ -1,0 +1,9 @@
+---
+
+argument_specs:
+  main:
+    short_description: Main entry point
+    options:
+      node_monitored_listening_port:
+        type: int
+        default: 9100

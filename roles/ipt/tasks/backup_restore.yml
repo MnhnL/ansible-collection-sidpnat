@@ -1,0 +1,59 @@
+- name: Remove old data
+  file:
+    state: '{{ item }}'
+    path: '{{ ipt_data_dir }}'
+    owner: tomcat
+    group: tomcat
+    mode: 0755
+  with_items:
+    - absent
+    - directory
+
+- name: Restore the content of archive
+  unarchive:
+    src: '{{ ipt_backup_file }}'
+    remote_src: yes
+    dest: '{{ ipt_data_dir }}'
+    owner: tomcat
+    group: tomcat
+    exclude:
+      - 'config/.gbifreg' # defines if development or prod instance
+      - 'tmp/'
+      - 'logs/'
+
+- name: Fix ownership
+  file:
+    path: '{{ ipt_data_dir }}'
+    recurse: true
+    owner: tomcat
+    group: tomcat
+
+# TODO: This should be replaced by a notify to 'Configure ipt.properties' of MnhnL.sidpnat.ipt role
+# This allows applying backup from domain X to be used on domain Y, e.g. when restoring a prod backup to staging.
+- name: Configure ipt baseURL
+  block:
+    - name: check if cert is present
+      stat:
+        path: '/etc/letsencrypt/live/{{ ipt_domain }}/fullchain.pem'
+      register: stat_result
+
+    - name: Set the http baseURL in IPT config
+      lineinfile:
+        path: '{{ ipt_data_dir }}/config/ipt.properties'
+        regexp: '^ipt.baseURL'
+        line: 'ipt.baseURL=http\://{{ ansible_default_ipv4.address }}/ipt'
+      when: not stat_result.stat.exists
+
+    - name: Set the https baseURL in IPT config
+      lineinfile:
+        path: '{{ ipt_data_dir }}/config/ipt.properties'
+        regexp: '^ipt.baseURL'
+        line: 'ipt.baseURL=https\://{{ ipt_domain }}/ipt'
+      when: stat_result.stat.exists
+
+    - name: set ipt mode
+      lineinfile:
+        state: present
+        create: yes
+        path: '{{ ipt_data_dir }}/config/.gbifreg'
+        line: '{{ ipt_mode }}'

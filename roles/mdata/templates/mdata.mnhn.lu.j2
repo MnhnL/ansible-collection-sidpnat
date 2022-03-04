@@ -1,0 +1,21 @@
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    server_name localhost {{ host }};
+
+    root {{ root }};
+    index index.php index.html;
+
+    location / {
+        try_files $uri $uri/ /index.php?$args =404;
+    }
+
+    location ~ \.php$ {
+        fastcgi_intercept_errors on;
+        include        fastcgi_params;
+        fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:{{ socket_path }};
+    }
+}

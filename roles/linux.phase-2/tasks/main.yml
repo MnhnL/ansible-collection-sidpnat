@@ -1,0 +1,50 @@
+---
+
+- name: Remove provisioning user
+  block:
+    # Remove the provisioning user who is allowed to login using password.
+    - name: Delete provisioning user
+      user:
+        state: absent
+        name: provisioning
+
+- name: Setup firewall
+  block:
+    - name: Reset Firewall
+      ufw: {state: reset}
+
+    - name: Disable Firewall
+      ufw: {state: disabled}
+
+    - name: Deny everything in
+      ufw:
+        default: deny
+        direction: incoming
+
+    - name: Allow everything going out
+      ufw:
+        default: allow
+        direction: outgoing
+
+    - name: Allow ssh for sure (but rate limited)
+      ufw:
+        rule: limit
+        port: ssh
+        proto: tcp
+
+    - name: Actually enable
+      ufw:
+        state: enabled # also reloads
+
+- name: Update installation
+  block:
+    - name: remove cdrom from sources.list
+      lineinfile:
+        dest: /etc/apt/sources.list
+        regexp: '^deb \[check-date=no\] file:///cdrom focal main restricted'
+        line: "# deb [check-date=no] file:///cdrom focal main restricted"
+
+    - name: Update Software
+      apt:
+        update_cache: yes
+        upgrade: safe

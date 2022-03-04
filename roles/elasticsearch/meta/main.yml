@@ -1,0 +1,9 @@
+---
+
+argument_specs:
+  main:
+    options:
+      elasticsearch_password:
+        type: str
+        required: yes
+        description: The password of the 'elastic' user

@@ -1,0 +1,21 @@
+---
+
+dependencies:
+  - role: nginx
+
+argument_specs:
+  main:
+    options:
+      grafana_server_name:
+        type: str
+        required: yes
+        description: Used in nginx configuration to match host name
+      grafana_default_admin_password:
+        type: str
+        required: yes
+        description: Used as default administrator password for grafana
+      grafana_domain:
+        type: str
+        required: no
+        description: Used to get a letsencrypt certificate
+

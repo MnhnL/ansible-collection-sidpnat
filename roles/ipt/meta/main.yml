@@ -1,0 +1,35 @@
+---
+
+dependencies:
+  - role: nginx
+
+argument_specs:
+  main:
+    short_description: Main entry point
+    options:
+      ipt_mode:
+        type: str
+        choices:
+          - PRODUCTION
+          - DEVELOPMENT
+        required: yes
+        description: Wether IPT runs in PRODUCTION or DEVELOPMENT mode
+      ipt_version:
+        type: str
+        required: yes
+      ipt_default_user_password_crypted:
+        type: str
+        required: yes
+        description: The encrypted password of first provisioned user
+      ipt_default_user_email:
+        type: str
+        required: yes
+        description: The email/login of first provisioned user
+      ipt_default_user_firstname:
+        type: str
+        required: yes
+        description: The first name of first provisioned user
+      ipt_default_user_lastname:
+        type: str
+        required: yes
+        description: The last name of first provisioned user

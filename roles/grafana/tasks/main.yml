@@ -1,0 +1,77 @@
+---
+
+- name: Prepare Apt sources
+  apt:
+    name:
+      - apt-transport-https
+      - software-properties-common
+      - wget
+    state: present
+
+- name: Add grafana labs key to apt
+  shell: wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+
+- name: Add sources to apt
+  apt_repository:
+    state: present
+    repo: 'deb https://packages.grafana.com/oss/deb stable main'
+    filename: grafana
+
+- name: Install grafana
+  apt:
+    name: grafana
+    update_cache: yes
+    state: present
+
+- name: Change admin user password
+  lineinfile:
+    regexp: '^;admin_password = admin$'
+    line: 'admin_password = {{ grafana_default_admin_password }}'
+    path: /etc/grafana/grafana.ini
+  notify:
+    - 'Restart grafana'
+
+- name: Reload systemd units
+  command: systemctl daemon-reload
+
+- name: Enable and start grafana
+  service:
+    name: grafana-server
+    enabled: yes
+    state: started
+
+- name: Configure reverse proxy
+  template:
+    src: monitoring.mnhn.lu.j2
+    dest: /etc/nginx/sites-available/monitoring.mnhn.lu
+  vars:
+    server_name: '{{ grafana_server_name }}'
+  notify:
+    - 'Restart nginx'
+
+- name: Enable site
+  file:
+    src: /etc/nginx/sites-available/monitoring.mnhn.lu
+    dest: /etc/nginx/sites-enabled/monitoring.mnhn.lu
+    state: link
+  notify:
+    - 'Restart nginx'
+
+- name: Allow http and https
+  ufw:
+    port: "{{ item }}"
+    rule: allow
+    proto: tcp
+  loop:
+    - http
+    - https
+
+- name: Setup https with letsencrypt certificate
+  tags: https
+  block:
+    - name: letsencrypt
+      include_role:
+        name: lu.mnhn.certbot_nginx
+      vars:
+        domain: '{{ grafana_domain }}'
+        email: '{{ domain_contact_email }}'

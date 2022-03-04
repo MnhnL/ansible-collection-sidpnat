@@ -1,0 +1,16 @@
+---
+
+dependencies:
+  - role: php
+
+argument_specs:
+  main:
+    options:
+      mdata_db_directory:
+        type: str
+        required: yes
+        description: The directory of the user database
+      mdata_install_directory:
+        type: str
+        required: yes
+        description: The directory where mdata is installed in

@@ -1,0 +1,24 @@
+---
+
+- name: install nginx
+  apt:
+    name: nginx
+    state: present
+
+- name: enable nginx
+  service:
+    name: nginx
+    enabled: yes
+
+- name: disable default
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: 'Restart nginx'
+
+- name: Allow port 80 and 443 in
+  ufw:
+    name: 'Nginx Full'
+    direction: in
+    rule: allow
+    state: enabled

@@ -1,0 +1,9 @@
+---
+
+- name: Restart tomcat9
+  service:
+    name: tomcat9
+    state: restarted
+
+- name: Configure ipt.properties
+  include_tasks: handlers/configure-ipt-properties.yml
