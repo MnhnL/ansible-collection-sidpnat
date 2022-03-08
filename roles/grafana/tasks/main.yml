@@ -9,7 +9,11 @@
     state: present
 
 - name: Add grafana labs key to apt
-  shell: wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+  get_url:
+    url: https://packages.grafana.com/gpg.key
+    dest: /etc/apt/trusted.gpg.d/grafana.asc
+    mod3: 0644
+
 
 - name: Add sources to apt
   apt_repository:

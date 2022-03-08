@@ -32,7 +32,8 @@
     path: '{{ mdata_db_directory }}'
     owner: www-data
     group: www-data
-    state: file
+    recurse: yes
+    state: directory
 
 - name: Download up to date mdata sources
   git:

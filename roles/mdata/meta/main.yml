@@ -10,7 +10,7 @@ argument_specs:
         type: str
         required: yes
         description: The directory of the user database
-      mdata_install_directory:
+      mdata_deploy_directory:
         type: str
         required: yes
         description: The directory where mdata is installed in
