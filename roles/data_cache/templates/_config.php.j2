@@ -1,0 +1,661 @@
+<?php
+
+require dirname(__FILE__) . '/vendor/autoload.php';
+
+include(dirname(__FILE__) . "/proj4php-master/vendor/autoload.php");
+
+//$es_server = ['192.168.1.95:9200']; // test server
+$es_server = ['localhost:9200'];
+
+// Sql Server connection
+//
+$sql_db_server = '192.168.1.44'; // prod
+//$sql_db_server = '192.168.2.38'; // test
+$sql_db_user   = 'symfony';      // test
+$sql_db_pass   = 'jithufre';     // test
+$sql_db_name   = 'NBNDATA_SYNC'; // production
+
+$sql_db_skip_build_cache = false;
+
+$bulk_num    = 2500;
+$num_threads = 6;
+
+// name of the 2 elasticsearch indexes
+// the index alias "recorder" point to the active production index
+// the current nonactive index is used to fill in the new cache data
+//
+//Observations index
+//
+$es_index_1 = 'mnhn';     // production
+$es_index_2 = 'mnhn2';    // production
+//
+$es_obs_index_alias = 'recorder';
+
+// Taxonomy index
+//
+$es_taxa_index1      = 'mnhn-taxa';       // test
+$es_taxa_index2      = 'mnhn-taxa2';      // test
+$es_taxa_index_alias = 'recorder-taxa';   // test
+
+
+// Survey index
+//
+$es_survey_index    = 'mnhn-survey'; // test
+
+// Survey run by index
+//
+$es_survey_run_by_index = 'mnhn-survey-run-by';
+
+// survey tag index
+//
+$es_survey_tag_index = 'mnhn-survey-tag';  // test
+
+// sample_type index
+//
+$es_sample_type_index = 'mnhn-sample-type';  // test
+
+// location index
+//
+$es_location_index = 'mnhn-location';  // test
+
+// determination index
+//
+$es_determination_index = 'mnhn-determination-type';
+
+// collection index
+//
+$es_collection_index = 'mnhn-collection';  // test
+
+// collection store index
+//
+$es_collection_store_index = 'collection_store';
+
+// record type index
+//
+$es_record_type_index = 'mnhn-record-type'; // test
+
+// biotop index
+//
+$es_record_type_index1 = 'biotop_locations_1';
+$es_record_type_index2 = 'biotop_locations_2';
+$es_biotop_index_alias = 'biotop_locations';
+
+use proj4php\Proj4php;
+use proj4php\Proj;
+use proj4php\Point;
+
+// Initialise Proj4
+$proj4 = new Proj4php();
+
+// add luxembourg gauss projection to proj4
+$proj4->addDef("EPSG:2169",'+proj=tmerc +lat_0=49.83333333333334 +lon_0=6.166666666666667 +k=1 +x_0=80000 +y_0=100000 +ellps=intl +towgs84=-193,13.7,-39.3,-0.41,-2.933,2.688,0.43 +units=m +no_defs');
+
+// Create two different projections.
+$proj2169    = new Proj('EPSG:2169', $proj4);
+$projWGS84   = new Proj('EPSG:4326', $proj4);
+$proj900913  = new Proj('EPSG:900913', $proj4);
+
+
+function get_wgs_84_points($x, $y, $grid_size){
+    $pointSrcGauss  = new Point($x,$y, $GLOBALS['proj2169']);
+    $pointDestWGS84 = $GLOBALS['proj4']->transform($GLOBALS['projWGS84'], $pointSrcGauss);
+    $long_lat_1     = explode(" ",$pointDestWGS84->toShortString());
+
+    $pointSrcGauss  = new Point($x + $grid_size,$y + $grid_size, $GLOBALS['proj2169']);
+    $pointDestWGS84 = $GLOBALS['proj4']->transform($GLOBALS['projWGS84'], $pointSrcGauss);
+    $long_lat_2     = explode(" ",$pointDestWGS84->toShortString());
+
+    return array($long_lat_1, $long_lat_2);
+}
+
+
+// taxa with restricted spatial reference
+// C  = breding status in data that comes from ornitho.lu
+// BD = breding status in data that comes from LUXOR
+// x  = should always be restriceted
+//
+$restriction = array('Alcedo atthis'         => ['C','BD'],
+                     'Accipiter gentilis'    => ['C','BD'],
+                     'Tetrastes bonasia'     => ['x'],
+                     'Vanellus vanellus'     => ['C','BD'],
+                     'Corvus corax'          => ['C','BD'],
+                     'Lanius excubitor'      => ['x'],
+                     'Perdix perdix'         => ['x'],
+                     'Circus aeruginosus'    => ['x'],
+                     'Milvus milvus'         => ['C','BD'],
+                     'Milvus migrans'        => ['C','BD'],
+                     'Ciconia nigra'         => ['C','BD'],
+                     'Athene noctua'         => ['x'],
+                     'Bubo bubo'             => ['C','BD'],
+                     'Coturnix coturnix'     => ['x'],
+                     'Crex crex'             => ['x'],
+                     'Falco peregrinus'      => ['C','BD'],
+                     'Ciconia ciconia'       => ['C','BD'],
+                     'Pernis apivorus'       => ['C','BD']);
+
+
+//------------ Functions ---------------------------------------
+
+function sent_mail($message) {
+
+            $headers = [];
+            $headers[] = 'MIME-Version: 1.0';
+            $headers[] = 'Content-type: text/html; charset=utf-8';
+            $headers[] = 'To: aturpel@mnhn.lu';
+            $headers[] = 'From: recorder@mnhn.lu';
+            $headers[] = 'Reply-To: recorder@mnhn.lu';
+
+            if (false == mail('aturpel@mnhn.lu','mnhnl cache message',$message,implode("\r\n", $headers))) {
+                error_log("\n----\n" . date("Y-n-j H:i:s") . " - user mail error.\n----\n" . $message . "\n----\n", 3, "/usr/share/nginx/html/data-cache/cachemail_error.log");
+            }
+}
+
+function getCurrentIndex($alias, $c)
+{
+    $aliases = $c->indices()->getAliases();
+    foreach ($aliases as $index => $aliasMapping) {
+        if (isset($aliasMapping['aliases'][$alias])) {
+          return $index;
+        }
+    }
+    return false;
+}
+/**
+ * build 2d box postgis code depending on coordinate systeme (grid or point data)
+ *
+ * @param array $data
+ */
+function build_polygon( $lat, $long, $ref, $spatial_ref)
+{
+    $GLOBALS['is_point'] = 0;
+
+    if (empty($spatial_ref) || ($spatial_ref == 'Test')) {
+        return false;
+    }
+
+    if (((double)$long < 5.727) || ((double)$long > 6.591) || ((double)$lat < 49.419) || ((double)$lat > 50.185)) {
+        $ref == 'LTLN';
+    }
+
+    // check if lugrid data
+    if($ref == 'LUGR')
+    {
+        if(preg_match("/^L. ([0-9]+) ([0-9]+)/",$spatial_ref, $match))
+        {
+            // get square distance
+            $_len = strlen($match[1]);
+
+            switch($_len)
+            {
+                case 1:
+                    $square_len = 10000;
+                    break;
+                case 2:
+                    $square_len = 1000;
+                    break;
+                case 3:
+                    $square_len = 100;
+                    break;
+                default:
+                    $GLOBALS['is_point'] = 1;
+                    $square_len = 1;
+                    break;
+            }
+
+            $GLOBALS['precision'] = $square_len;
+            
+            $gauss = get_gauss_from_lugrid( $spatial_ref );
+
+            return get_polygon( (double)$lat, (double) $long, $square_len, $gauss);
+        }
+    }
+    // check if lux gauss data
+    elseif($ref == 'LUX')
+    {
+        $_ref = explode(",",$spatial_ref);
+
+        if(isset($_ref[1]))
+        {
+            // we consider only 100 and 1000 meter squares
+            //
+
+            // is 1000 meter grid if both values are divisible by 1000
+            $_x_000_mod = fmod((float)trim($_ref[0]),1000);
+            $_y_000_mod = fmod((float)trim($_ref[1]),1000);
+
+            // is 100 meter grid if both values are divisible by 100
+            $_x_00_mod = fmod((float)trim($_ref[0]),100);
+            $_y_00_mod = fmod((float)trim($_ref[1]),100);
+
+            if(($_x_000_mod == 0) && ($_y_000_mod == 0))
+            {
+                $GLOBALS['precision'] = 1000;
+                $gauss = array(trim($_ref[0]), trim($_ref[1]), 1000);
+                return get_polygon( (double)$lat, (double) $long, 1000, $gauss );
+            }
+            elseif(($_x_00_mod == 0) && ($_y_00_mod == 0))
+            {
+                $GLOBALS['precision'] = 100;
+                $gauss = array(trim($_ref[0]), trim($_ref[1]), 100);
+                return get_polygon( (double)$lat, (double) $long, 100, $gauss );
+            }
+        }
+    }
+
+    $GLOBALS['precision'] = 1;
+    $GLOBALS['is_point']  = 1;
+
+    if ((preg_match("/W/", $spatial_ref)) && $long > 0) {
+      $long = $long * -1;
+    }
+
+    // point data is handeled as 1*1 m square grid
+    return get_polygon( (double)$lat, (double) $long, 1);
+}
+
+function get_polygon_c( $lat, $long)
+{
+    $pointSrc   = new Point($long,$lat,  $GLOBALS['projWGS84']);
+    $pointDest  = $GLOBALS['proj4']->transform($GLOBALS['proj900913'], $pointSrc);
+    $xy_900913 = explode(" ",$pointDest->toShortString());
+
+    return ['es' => get_es_geometry_c((float)$long,(float)$lat,(float)$long + 0.000001,(float)$lat + 0.000001 ),
+            'ol' => array((float)$xy_900913[0],(float)$xy_900913[1])];
+}
+
+function get_es_geometry_c( $x1,$y1,$x2,$y2 )
+{
+            return array(array(array($x1,$y1),
+                                     array($x1,$y2),
+                                     array($x2,$y2),
+                                     array($x2,$y1),
+                                     array($x1,$y1)));
+}
+
+
+/**
+ * build 2d box postgis code
+ *
+ * @param array $x1,$y1,$x2,$y2
+ * @return array
+ */
+function get_polygon($lat, $long, $length, $gauss = false)
+{
+    if(($long > 180) OR ($long < -180) OR ($lat < -90) OR ($lat > 90)) {
+        return false;
+    }
+
+    if ($length == 1) {
+
+        $pointSrc   = new Point($long,$lat,  $GLOBALS['projWGS84']);
+        $pointDest  = $GLOBALS['proj4']->transform($GLOBALS['proj900913'], $pointSrc);
+        $xy_900913 = explode(" ",$pointDest->toShortString());
+
+        if (($long < 5.527) || ($long > 6.751) || ($lat < 49.289) || ($lat > 50.305)) {
+
+            $mai_geom   = false;
+            $geom_gauss = false;
+
+        } else {
+
+            $pointDestGauss = $GLOBALS['proj4']->transform($GLOBALS['proj2169'], $pointSrc);
+            $xy_gauss = explode(" ",$pointDestGauss->toShortString());
+
+            $geom_gauss = 'POINT ('.$xy_gauss[0].' '.$xy_gauss[1].')';
+
+            if (($xy_gauss[0] > 120000) || ($xy_gauss[0] < 40000) || ($xy_gauss[1] > 150000) || ($xy_gauss[1] < 50000)) {
+                $mai_geom = false;
+            } else {
+
+                $_mai_point    = snap_grid( array((float) $xy_gauss[0],(float)$xy_gauss[1]) , 250);
+                $mai_pointSrc  = new Point($_mai_point[0] + 125,$_mai_point[1] + 125,  $GLOBALS['proj2169']);
+
+                $mai_pointDest = $GLOBALS['proj4']->transform($GLOBALS['projWGS84'], $mai_pointSrc);
+                $xy_mai        = explode(" ",$mai_pointDest->toShortString());
+                $mai_geom      = array((float) $xy_mai[0], (float) $xy_mai[1]);
+            }
+
+        }
+
+        return ['es'         => get_es_point_geometry((float)$long,(float)$lat),
+                'ol'         => array((float)$xy_900913[0],(float)$xy_900913[1]),
+                'geo_type'   => 'point',
+                'mai'        => $mai_geom,
+                'geom_gauss' => $geom_gauss];
+    }
+    
+    if ($gauss === false) {
+      $pointSrc = new Point($long,$lat,  $GLOBALS['projWGS84']);
+      $pointDest = $GLOBALS['proj4']->transform($GLOBALS['proj2169'], $pointSrc);
+      $xy = explode(" ",$pointDest->toShortString());
+      
+      if ($length == 5000) {
+          $xy = snap_lux_5000( $xy );
+      } else {
+          $xy = snap_grid( $xy, $length );
+      }
+    } else {
+      $xy = $gauss;
+    }
+
+    $x1 = (int)$xy[0];
+    $y1 = (int)$xy[1];
+    $x2 = (int)$x1 + $length;
+    $y2 = (int)$y1 + $length;
+
+    $geom_gauss = 'POLYGON (('.$x1.' '.$y1.', '.$x1.' '.$y2.', '.$x2.' '.$y2.', '.$x2.' '.$y1.', '.$x1.' '.$y1.'))';
+
+    $pointMai     = new Point($x1 + ($length / 2) + 125, $y1 + ($length / 2) + 125,  $GLOBALS['proj2169']);
+    $pointMaiDest = $GLOBALS['proj4']->transform($GLOBALS['projWGS84'], $pointMai);
+    $xylonlat_mai = explode(" ",$pointMaiDest->toShortString());
+
+    $pointSrc1 = new Point($x1,$y1,  $GLOBALS['proj2169']);
+    $pointDest1 = $GLOBALS['proj4']->transform($GLOBALS['projWGS84'], $pointSrc1);
+    $xylonlat1 = explode(" ",$pointDest1->toShortString());
+
+    $pointSrc2 = new Point($x2,$y2,  $GLOBALS['proj2169']);
+    $pointDest2 = $GLOBALS['proj4']->transform($GLOBALS['projWGS84'], $pointSrc2);
+    $xylonlat2 = explode(" ",$pointDest2->toShortString());
+
+    $pointDest2 = $GLOBALS['proj4']->transform($GLOBALS['proj900913'], $pointSrc2);
+    $xy2_900913 = explode(" ",$pointDest2->toShortString());
+
+    $pointSrc1 = new Point($x1,$y1,  $GLOBALS['proj2169']);
+    $pointDest = $GLOBALS['proj4']->transform($GLOBALS['proj900913'], $pointSrc1);
+    $xy1_900913 = explode(" ",$pointDest->toShortString());
+
+    return ['es'         => get_es_geometry((float)$xylonlat1[0],(float)$xylonlat1[1],(float)$xylonlat2[0],(float)$xylonlat2[1] ),
+            'ol'         => get_poly_cordinates_900913($length, (float)$xy1_900913[0],(float)$xy1_900913[1],(float)$xy2_900913[0],(float)$xy2_900913[1]),
+            'geo_type'   => 'polygon',
+            'mai'        => array((float) $xylonlat_mai[0], (float) $xylonlat_mai[1]),
+            'geom_gauss' => $geom_gauss];
+}
+
+function get_poly_cordinates_900913( $length, $x1,$y1,$x2,$y2 )
+{
+    if ($length > 1) {
+        return array(array($x1,$y1),
+                                 array($x1,$y2),
+                                 array($x2,$y2),
+                                 array($x2,$y1),
+                                 array($x1,$y1));
+    } else {
+        return array($x1,$y1);
+    }
+}
+
+function get_es_point_geometry( $x,$y)
+{
+            return array($x,$y);
+}
+
+function get_es_geometry( $x1,$y1,$x2,$y2 )
+{
+            return array(array(array($x1,$y1),
+                                     array($x1,$y2),
+                                     array($x2,$y2),
+                                     array($x2,$y1),
+                                     array($x1,$y1)));
+}
+
+function is_sensible_status( $status_array )
+{
+    $search_for = ["MNHSYS0000000002","MNHSYS0000000003","MNHSYS0000000004","MNHSYS0000000001","MNHSYS0000000007","DSS0043900000140"];
+
+    foreach ($status_array as $val) {
+         if (in_array($val, $search_for)) {
+          return true;
+         }
+     }
+     return false;
+}
+
+function is_sensible_higher_status( $taxon_preferred, $status_array )
+{
+    $search_for = ["MNHSYS0000007107","MNHSYS0000007266","MNHSYS0000007098","MNHSYS0000007097","MNHSYS0000007075","DSS0043900174BUC","MNHSYS0000007433","MNHSYS0000007022"];
+
+    return in_array($taxon_preferred, $search_for);
+
+    if ($status_array === null) {
+        return false;
+    }
+    // 'DSS0043900000146' > brutvogel
+
+    if (in_array($taxon_preferred, $search_for) && in_array('DSS0043900000146', $status_array)) {
+        return true;
+    }
+
+    return false;
+}
+
+function geom_expand($lat, $long, $expand) {
+
+    if(($long > 179.99) OR ($long < -179.99) OR ($lat < -89.99) OR ($lat > 89.99)) {
+        return false;
+    }
+
+    // use projection 900913 outside of luxembourg to build polygon
+    //
+    if (($long < 5.527) || ($long > 6.751) || ($lat < 49.289) || ($lat > 50.305)) {
+        $pointSrc   = new Point(round((float)$long, 2),round((float)$lat, 2),  $GLOBALS['projWGS84']);
+        $pointDest  = $GLOBALS['proj4']->transform($GLOBALS['proj900913'], $pointSrc);
+        $xy_900913 = explode(" ",$pointDest->toShortString());
+
+        // cut lat/long float on second place which reduce precision to +- 800 meters
+        //
+        $es1_lon  = round((float)$long,2);
+        $es1_lat  = round((float)$lat,2);
+        // add 0.01 degrees which represent +- 800 meters.
+        $es2_lon  = round((float)$long + 0.01,2);
+        $es2_lat  = round((float)$lat + 0.01,2);
+
+        // projection 900913 unit is meter
+        $ol1_lon  = (float)round($xy_900913[0],0);
+        $ol1_lat  = (float)round($xy_900913[1],0);
+        $ol2_lon  = (float)round($xy_900913[0],0) + 1000;
+        $ol2_lat  = (float)round($xy_900913[1],0) + 1000;
+
+        return ['es' => array(array(array($es1_lon,$es1_lat),
+                                    array($es1_lon,$es2_lat),
+                                    array($es2_lon,$es2_lat),
+                                    array($es2_lon,$es1_lat),
+                                    array($es1_lon,$es1_lat))),
+                'ol' => array(array($ol1_lon,$ol1_lat),
+                              array($ol1_lon,$ol2_lat),
+                              array($ol2_lon,$ol2_lat),
+                              array($ol2_lon,$ol1_lat),
+                              array($ol1_lon,$ol1_lat))];
+    }
+
+    // inside of luxembourg use projection 2169
+    //
+    $pointSrc = new Point($long,$lat,  $GLOBALS['projWGS84']);
+    $pointDest = $GLOBALS['proj4']->transform($GLOBALS['proj2169'], $pointSrc);
+    $xy = explode(" ",$pointDest->toShortString());
+
+    if ($expand == 5000) {
+        $xy = snap_lux_5000( $xy );
+    } else {
+        $xy = snap_grid( $xy, $expand );
+    }
+
+    $x1 = (int)$xy[0];
+    $y1 = (int)$xy[1];
+    $x2 = $x1 + $expand;
+    $y2 = $y1 + $expand;
+
+    $pointSrc1  = new Point($x1,$y1,  $GLOBALS['proj2169']);
+    $pointDest1 = $GLOBALS['proj4']->transform($GLOBALS['projWGS84'], $pointSrc1);
+    $lonlat_es1 = explode(" ",$pointDest1->toShortString());
+
+    $pointSrc2  = new Point($x2,$y2,  $GLOBALS['proj2169']);
+    $pointDest2 = $GLOBALS['proj4']->transform($GLOBALS['projWGS84'], $pointSrc2);
+    $lonlat_es2 = explode(" ",$pointDest2->toShortString());
+
+    $es1_lon  = (float)round($lonlat_es1[0],8);
+    $es1_lat  = (float)round($lonlat_es1[1],8);
+    $es2_lon  = (float)round($lonlat_es2[0],8);
+    $es2_lat  = (float)round($lonlat_es2[1],8);
+
+    $pointSrc3  = new Point($es1_lon,$es1_lat,  $GLOBALS['projWGS84']);
+    $pointDest3 = $GLOBALS['proj4']->transform($GLOBALS['proj900913'], $pointSrc3);
+    $lonlat_ol1 = explode(" ",$pointDest3->toShortString());
+
+    $pointSrc4  = new Point($es2_lon,$es2_lat,  $GLOBALS['projWGS84']);
+    $pointDest4 = $GLOBALS['proj4']->transform($GLOBALS['proj900913'], $pointSrc4);
+    $lonlat_ol2 = explode(" ",$pointDest4->toShortString());
+
+    $ol1_lon  = (float)round($lonlat_ol1[0],8);
+    $ol1_lat  = (float)round($lonlat_ol1[1],8);
+    $ol2_lon  = (float)round($lonlat_ol2[0],8);
+    $ol2_lat  = (float)round($lonlat_ol2[1],8);
+
+    return ['es' => array(array(array($es1_lon,$es1_lat),
+                                array($es1_lon,$es2_lat),
+                                array($es2_lon,$es2_lat),
+                                array($es2_lon,$es1_lat),
+                                array($es1_lon,$es1_lat))),
+            'ol' => array(array($ol1_lon,$ol1_lat),
+                          array($ol1_lon,$ol2_lat),
+                          array($ol2_lon,$ol2_lat),
+                          array($ol2_lon,$ol1_lat),
+                          array($ol1_lon,$ol1_lat))];
+}
+
+function snap_lux_5000( $gauss_xy )
+{
+    $xy = [];
+
+    for ($x = 3000; $x < 200000; $x = $x + 5000) {
+        if ($x > $gauss_xy[0]) {
+            $xy[0] = $x - 5000;
+            break;
+        }
+    }
+    for ($y = 4000; $y < 200000; $y = $y + 5000) {
+        if ($y > $gauss_xy[1]) {
+            $xy[1] = $y - 5000;
+            break;
+        }
+    }
+
+    if (!isset($xy[0]) || !isset($xy[1])) {
+        return $gauss_xy;
+    }
+
+    return $xy;
+}
+
+function snap_grid( $gauss_xy , $length)
+{
+    $xy = [];
+
+    $xy[0] = $gauss_xy[0] - $gauss_xy[0] % $length;
+    $xy[1] = $gauss_xy[1] - $gauss_xy[1] % $length;
+
+
+    return $xy;
+}
+
+function get_gauss_from_lugrid( $spatial_ref )
+{
+    if(preg_match("/^(L[ABCD]{1}) ([0-9]+) ([0-9]+)/",$spatial_ref, $match)) {
+
+        switch(strlen($match[2])) {
+            case 1:
+                $square_len = 10000;
+                break;
+            case 2:
+                $square_len = 1000;
+                break;
+            case 3:
+                $square_len = 100;
+                break;
+            case 4:
+                $square_len = 10;
+                break;
+            default:
+                $square_len = 1;
+        }
+
+        switch ($match[1]) {
+            case 'LA':
+                $gauss_y = 100000;
+
+                $gauss_x = (int)$match[2] * $square_len;
+                $gauss_y = $gauss_y + ((int)$match[3] * $square_len);
+
+                break;
+            case 'LB':
+                $gauss_x = 100000;
+                $gauss_y = 100000;
+
+                $gauss_x = $gauss_x + ((int)$match[2] * $square_len);
+                $gauss_y = $gauss_y + ((int)$match[3] * $square_len);
+
+                break;
+            case 'LC':
+                    $gauss_x = (int)$match[2] * $square_len;
+                    $gauss_y = (int)$match[3] * $square_len;
+                break;
+            case 'LD':
+                $gauss_x = 100000;
+
+                $gauss_x = $gauss_x + ((int)$match[2] * $square_len);
+                $gauss_y = (int)$match[3] * $square_len;
+                break;
+             default:
+        }
+
+        return array($gauss_x, $gauss_y, $square_len);
+    }
+
+    return false;
+}
+
+function is_breeding($str) {
+
+    if (preg_match("/(^C.*)|(^BD.*)/",$str)) {
+        return true;
+    }
+
+    return false;
+}
+
+function aves_restrict(& $item2) {
+
+    $code = $GLOBALS['restriction'][$item2['Taxon_Name']];
+
+    if (($code[0] == 'x') || is_breeding($item2['Bird_Atlas_Code'])) {
+
+        $item2['o_ref']    =  $item2['Spatial_Ref_System'] . ': ' . $item2['Spatial_Ref'];
+        $item2['o_lnla']   =  'Lat/Long ' . $item2['Lat'] . ' ' . $item2['Long'];
+
+        $item2['Lat']    =  (string) round((double)$item2['Lat'],2);
+        $item2['Long']   =  (string) round((double)$item2['Long'],2);
+        $item2['Lat_x']  =  (string) round((float)$item2['Lat_x'],2);
+        $item2['Long_x'] =  (string) round((float)$item2['Long_x'],2);
+
+        $_ref = explode(",",$item2['Spatial_Ref']);
+
+        if (($item2['Spatial_Ref_System'] == 'LUX') && isset($_ref[1]) && is_numeric($_ref[1]) && isset($_ref[0]) && is_numeric($_ref[0])) {
+            $_new_x = $_ref[0] - ((int)$_ref[0] % 1000);
+            $_new_y = $_ref[1] - ((int)$_ref[1] % 1000);
+
+            $item2['Spatial_Ref'] = (string)$_new_x . ',' . (string)$_new_y;
+        } else {
+
+            $item2['Spatial_Ref_System_x'] = 'LTLN';
+            $item2['Spatial_Ref_System']   = 'LTLN';
+            $item2['Spatial_Ref']          = (string)$item2['Long'] . ', ' . (string)$item2['Lat'];
+        }
+
+        $item2['Location_r_details'] = '';
+
+        $item2['occurrence_comment'] = "For more detailed information about this observation, please contact recorder@mnhn.lu specifiying the Observation_Key: " . $item2['Observation_Key'];
+
+        return true;
+    }
+
+    return false;
+}

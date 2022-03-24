@@ -10,10 +10,9 @@
 
 - name: Add grafana labs key to apt
   get_url:
-    url: https://packages.grafana.com/gpg.key
+    url: 'https://packages.grafana.com/gpg.key'
     dest: /etc/apt/trusted.gpg.d/grafana.asc
-    mod3: 0644
-
+    mode: 0644
 
 - name: Add sources to apt
   apt_repository:
@@ -75,7 +74,7 @@
   block:
     - name: letsencrypt
       include_role:
-        name: lu.mnhn.certbot_nginx
+        name: mnhnl.sidpnat.certbot_nginx
       vars:
         domain: '{{ grafana_domain }}'
         email: '{{ domain_contact_email }}'

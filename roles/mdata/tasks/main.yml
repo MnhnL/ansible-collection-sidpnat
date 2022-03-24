@@ -70,3 +70,11 @@
     state: link
   notify:
     'Reload nginx'
+
+- name: Crontab csv export
+  cron:
+    name: CSV export generation (every minute)
+    cron_file: mdata_queue
+    state: present
+    user: php-fpm
+    job: '{{ mdata_deploy_directory }}/cli/queu_downloads.php >> {{ mdata_deploy_directory }}/log/queu_downloads.log'
