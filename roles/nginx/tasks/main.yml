@@ -10,6 +10,15 @@
     name: nginx
     enabled: yes
 
+- name: Enable large file uploads needed for import
+  lineinfile:
+    path: /etc/nginx/nginx.conf
+    regexp: client_max_body_size
+    insertafter: '^http {$'
+    line: "\tclient_max_body_size 2G;"
+  notify:
+    - 'Restart nginx'
+
 - name: disable default
   file:
     path: /etc/nginx/sites-enabled/default

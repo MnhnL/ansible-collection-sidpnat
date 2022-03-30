@@ -122,14 +122,6 @@
 
 - name: Configure nginx for IPT
   block:
-    - name: Enable large file uploads needed for import
-      lineinfile:
-        path: /etc/nginx/nginx.conf
-        regexp: client_max_body_size
-        line: "\tclient_max_body_size 2G;"
-      notify:
-        - 'Restart nginx'
-
     - name: configure nginx to access ipt. Also configures http>https forwarding and letsencrypt
       template:
         src: gbif.mnhn.lu.j2

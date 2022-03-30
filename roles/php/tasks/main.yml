@@ -5,6 +5,18 @@
     name: php-fpm
     state: latest
 
+- name: Set larger maximum upload and post size
+  lineinfile:
+    regexp: '{{ item }} ='
+    line: '{{ item }} = 2G'
+    path: /etc/php/7.4/fpm/php.ini
+  notify:
+    - 'Restart php-fpm'
+  loop:
+    - upload_max_filesize
+    - post_max_size
+
+
 - name: Enable service and start
   service:
     name: php7.4-fpm
