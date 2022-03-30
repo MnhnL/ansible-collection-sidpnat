@@ -1,0 +1,10 @@
+---
+
+- name: Install postgis from apt
+  apt:
+    name:
+      - postgis
+      - 'postgresql-{{ postgres_major_version }}-postgis-3'
+    state: latest
+  notify:
+    - 'Restart postgresql'

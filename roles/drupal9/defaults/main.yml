@@ -1,0 +1,4 @@
+---
+
+drupal9_directory: '{{ drupal9_deploy_directory }}/drupal9'
+drupal9_drush: '{{ drupal9_deploy_directory }}/drupal9/vendor/bin/drush'

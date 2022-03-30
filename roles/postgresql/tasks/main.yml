@@ -1,0 +1,13 @@
+---
+
+- name: Install postgresql from apt
+  apt:
+    name: 'postgresql-{{ postgres_major_version }}'
+    state: latest
+
+- name: Enable service
+  service:
+    name: postgresql
+    enabled: yes
+  notify:
+    - 'Restart postgresql'

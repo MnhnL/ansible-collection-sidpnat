@@ -1,0 +1,22 @@
+---
+
+dependencies:
+  - role: php
+  - role: geerlingguy.composer
+  - role: postgresql
+
+argument_specs:
+  main:
+    options:
+      drupal9_site_name:
+        type: str
+        required: yes
+        description: The name of the site
+      drupal9_deploy_directory:
+        type: str
+        required: yes
+        description: The directory where drupal9 is installed in
+      drupal9_default_admin_password:
+        type: str
+        required: yes
+        description: The password of admin user. It's reset on every installation

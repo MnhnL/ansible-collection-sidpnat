@@ -1,0 +1,11 @@
+---
+
+dependencies:
+  - role: mnhnl.sidpnat.postgresql
+
+argument_specs:
+  main:
+    options:
+      postgres_major_version:
+        type: int
+        default: yes
