@@ -48,3 +48,11 @@
       apt:
         update_cache: yes
         upgrade: safe
+
+    - name: Install tools
+      apt:
+        name:
+          - acl # fixes some ansible become problems
+          - htop
+          - httpie
+        state: present
