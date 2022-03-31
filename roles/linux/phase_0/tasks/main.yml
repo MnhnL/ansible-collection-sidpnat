@@ -1,14 +1,15 @@
 ---
 
-- name: Set hostname to one defined in host variable
+# set hostname to eithe provisioning_hostname or if not set, inventory_hostnam. 1. case for initial provisioning, 2. case for later changes to network
+- name: Set hostname
   hostname:
-    name: "{{ provisioning_hostname }}"
+    name: "{{ provisioning_new_hostname | default(inventory_hostname) }}"
 
 - name: Set hostname in hostname file
   lineinfile:
     state: present
     path: /etc/hostname
-    line: "{{ provisioning_hostname }}"
+    line: "{{ provisioning_new_hostname | default(inventory_hostname) }}"
 
 - name: Set IP to the one defined in host variable
   block:
@@ -19,9 +20,9 @@
         owner: root
         group: root
       vars:
-        ip_address: "{{ provisioning_ip_address }}"
-        gateway: "{{ provisioning_gateway }}"
-        nameservers: "{{ provisioning_nameservers }}"
+        ip_address: "{{ provisioning_new_ip_address | default(ansible_host) }}"
+        gateway: "{{ network_default_gateway }}"
+        nameservers: "{{ network_nameservers }}"
 
     - name: Apply netplan config
       command: netplan apply

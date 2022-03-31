@@ -8,4 +8,6 @@ network:
         - {{ ip_address }}/21
       gateway4: {{ gateway }}
       nameservers:
+        search:
+          - hisnat.local # enables nameserver to resolve .local domains instead of mDNS
         addresses: {{ nameservers }}
