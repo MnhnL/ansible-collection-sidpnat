@@ -2,23 +2,26 @@
 
 - name: Install dependencies for postgresql modules
   apt:
-    name: python3-psycopg2
+    name:
+      - python3-psycopg2
+      - postgresql-contrib # for pg_trgm
     state: present
 
-- name: Create database user
-  postgresql_user:
-    name: drupal
-    password: '{{ drupal9_default_database_password }}'
-    state: present
+- name: As postgres
   become_user: postgres
+  block:
+    - name: Create database user
+      postgresql_user:
+        name: drupal
+        password: '{{ drupal9_default_database_password }}'
+        state: present
 
-- name: Create drupal9 database
-  postgresql_db:
-    name: drupal
-    encoding: UTF-8
-    owner: drupal
-    state: present
-  become_user: postgres
+    - name: Create drupal9 database
+      postgresql_db:
+        name: drupal
+        encoding: UTF-8
+        owner: drupal
+        state: present
 
 - name: Create deployment directory
   file:
@@ -48,49 +51,37 @@
     group: www-data
   when: not drupal_dir.stat.exists
 
-# FIXME: handle existing installation, maybe update
-- name: Install drupal9 project using composer
-  composer:
-    command: create-project
-    arguments: drupal/recommended-project drupal9
-    working_dir: '{{ drupal9_deploy_directory }}'
+- name: As www-data
   become_user: www-data
-  when: not drupal_dir.stat.exists
-
-- name: Install drush (drupal shell)
-  composer:
-    command: require
-    arguments: drush/drush
-    working_dir: '{{ drupal9_directory }}'
-  become_user: www-data
-
-- name: Install drupal9 site
-  command:
-    cmd: '{{ drupal9_drush}} site:install -y --db-url=pgsql://drupal:{{ drupal9_default_database_password }}@localhost/drupal'
-    chdir: '{{ drupal9_directory }}'
-  become_user: www-data
-
-- name: Set site name
-  command:
-    cmd: '{{ drupal9_drush }} config:set -y system.site name "{{ drupal9_site_name }}"'
-    chdir: '{{ drupal9_directory }}'
-
-- name: Reset admin password
-  command:
-    cmd: '{{ drupal9_drush }} user:password -y admin "{{ drupal9_default_admin_password }}"'
-    chdir: '{{ drupal9_directory }}'
-
-# - name: Fix permissions
-#   file:
-#     path: '{{ item }}'
-#     owner: www-data
-#     group: www-data
-#     recurse: yes
-#     state: directory
-#   loop:
-#     - '{{ drupal9_deploy_directory }}/drupal9/sites'
-#     - '{{ drupal9_deploy_directory }}/drupal9/sites/files'
-#     - '{{ drupal9_deploy_directory }}/drupal9/sites/settings.php'
+  block:
+    # FIXME: handle existing installation, maybe update
+    - name: Install drupal9 project using composer
+      composer:
+        command: create-project
+        arguments: drupal/recommended-project drupal9
+        working_dir: '{{ drupal9_deploy_directory }}'
+      when: not drupal_dir.stat.exists
+    
+    - name: Install drush (drupal shell)
+      composer:
+        command: require
+        arguments: drush/drush
+        working_dir: '{{ drupal9_directory }}'
+    
+    - name: Install drupal9 site
+      command:
+        cmd: '{{ drupal9_drush}} site:install -y --db-url=pgsql://drupal:{{ drupal9_default_database_password }}@localhost/drupal'
+        chdir: '{{ drupal9_directory }}'
+    
+    - name: Set site name
+      command:
+        cmd: '{{ drupal9_drush }} config:set -y system.site name "{{ drupal9_site_name }}"'
+        chdir: '{{ drupal9_directory }}'
+    
+    - name: Reset admin password
+      command:
+        cmd: '{{ drupal9_drush }} user:password -y admin "{{ drupal9_default_admin_password }}"'
+        chdir: '{{ drupal9_directory }}'
 
 - name: Configure nginx to serve drupal9
   template:
@@ -98,7 +89,7 @@
     dest: /etc/nginx/sites-available/drupal9
   vars:
     root: '{{ drupal9_deploy_directory }}/drupal9/web'
-    host: '{{ ansible_host }}'
+    host: '{{ drupal9_domain }}'
     socket_path: '/var/run/php/php-fpm.sock'
   notify:
     'Reload nginx'
