@@ -8,14 +8,14 @@
     - name: Create admin users with empty passwords and add to sudo group
       user:
         state: present
-        name: '{{ item.name }}'
-        uid: '{{ item.uid }}'
-        comment: '{{ item.full_name }}'
+        name: '{{ item.key }}'
+        uid: '{{ item.value.uid }}'
+        comment: '{{ item.value.full_name }}'
         shell: /usr/bin/bash
         create_home: yes
         groups: 'sudo'
         append: yes
-      loop: '{{ admin_users }}'
+      loop: '{{ phase_1_admin_users | dict2items }}'
 
     - name: Allow sudo group member to use sudo without password
       lineinfile:
@@ -29,10 +29,10 @@
   block:
     - name: set up pubkey based auth by installing pubkeys
       ansible.posix.authorized_key:
-        user: "{{ item.name }}"
+        user: "{{ item.key }}"
         state: present
-        key: "{{ item.pubkey }}"
-      loop: '{{ admin_users }}'
+        key: "{{ item.value.pubkey }}"
+      loop: '{{ phase_1_admin_users | dict2items }}'
 
     - name: switch off password based logins
       lineinfile:
