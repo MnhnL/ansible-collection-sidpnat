@@ -26,3 +26,6 @@
 
     - name: Apply netplan config
       command: netplan apply
+
+    - name: Reset connection
+      meta: reset_connection

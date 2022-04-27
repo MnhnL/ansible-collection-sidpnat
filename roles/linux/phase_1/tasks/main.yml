@@ -44,3 +44,6 @@
       service:
         name: sshd
         state: reloaded
+
+    - name: Reconnect since sshd was reloaded
+      meta: reset_connection
