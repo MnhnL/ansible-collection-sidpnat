@@ -1,0 +1,20 @@
+---
+
+- name: Install msmtp and configure
+  tags: [ msmtp ]
+  block:
+    - name: Install msmtp as replacement for sendmail
+      apt:
+        name: msmtp
+        state: latest
+
+    - name: Install msmtprc config file
+      template:
+        src: msmtprc.j2
+        dest: /etc/msmtprc
+      vars:
+        hostname: '{{ msmtp_hostname }}'
+        port: '{{ msmtp_port }}'
+        username: '{{ msmtp_username }}'
+        password: '{{ msmtp_password }}'
+        from_address: '{{ msmtp_from }}'

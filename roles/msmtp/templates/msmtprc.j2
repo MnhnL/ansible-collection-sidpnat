@@ -1,0 +1,10 @@
+defaults
+account default
+host {{ hostname }}
+port {{ port }}
+{% if username %}
+auth on
+user {{ username }}
+password {{ password }}
+{% endif %}
+from {{ from_address }}

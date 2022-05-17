@@ -4,7 +4,7 @@
   apt:
     name: php-fpm
     state: latest
-
+    
 - name: Set larger maximum upload and post size
   lineinfile:
     regexp: '{{ item }} ='
@@ -16,10 +16,17 @@
     - upload_max_filesize
     - post_max_size
 
+- name: Configure php-fpm to use msmtp for sending mail
+  lineinfile:
+    path: /etc/php/7.4/fpm/php.ini
+    line: 'sendmail_path = "/usr/bin/msmtp -t -i"'
+    regexp: '^;sendmail_path ='
+  notify:
+    - 'Restart php-fpm'
 
 - name: Enable service and start
   service:
     name: php7.4-fpm
     enabled: yes
   notify:
-    'Restart php-fpm'
+    - 'Restart php-fpm'

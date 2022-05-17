@@ -2,3 +2,10 @@
 
 dependencies:
   - role: nginx
+  - role: msmtp
+    vars:
+      msmtp_hostname: '{{ smtp_hostname }}'
+      msmtp_port: '{{ smtp_port }}'
+      msmtp_username: '{{ smtp_username }}'
+      msmtp_password: '{{ smtp_password }}'
+      msmtp_from: '{{ smtp_from  }}'
