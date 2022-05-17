@@ -36,6 +36,7 @@
       - php-xml # ext-dom
       - php-gd # ext-gd
       - php-pgsql
+      - php-mbstring
     state: latest
 
 - name: Check if drupal9 is already installed
@@ -51,23 +52,22 @@
     group: www-data
   when: not drupal_dir.stat.exists
 
-- name: As www-data
+- name: As www-data install first time
   become_user: www-data
+  when: not drupal_dir.stat.exists
   block:
-    # FIXME: handle existing installation, maybe update
     - name: Install drupal9 project using composer
       composer:
         command: create-project
         arguments: drupal/recommended-project drupal9
         working_dir: '{{ drupal9_deploy_directory }}'
-      when: not drupal_dir.stat.exists
-    
+
     - name: Install drush (drupal shell)
       composer:
         command: require
         arguments: drush/drush
         working_dir: '{{ drupal9_directory }}'
-    
+
     - name: Install drupal9 site
       command:
         cmd: '{{ drupal9_drush}} site:install -y --db-url=pgsql://drupal:{{ drupal9_default_database_password }}@localhost/drupal'
@@ -81,6 +81,25 @@
     - name: Reset admin password
       command:
         cmd: '{{ drupal9_drush }} user:password -y admin "{{ drupal9_default_admin_password }}"'
+        chdir: '{{ drupal9_directory }}'
+
+- name: Update drupal installation if it exists already
+  when: drupal_dir.stat.exists
+  block:
+    - name: Update drupal9 using composer if already exists
+      composer:
+        command: update
+        arguments: 'drupal/core "drupal/core-*" --with-all-dependencies'
+        working_dir: '{{ drupal9_directory }}'
+
+    - name: Update db (migrate)
+      command:
+        cmd: '{{ drupal9_drush}} updatedb'
+        chdir: '{{ drupal9_directory }}'
+
+    - name: Rebuild cache
+      command:
+        cmd: '{{ drupal9_drush}} cache:rebuild'
         chdir: '{{ drupal9_directory }}'
 
 - name: Configure nginx to serve drupal9
