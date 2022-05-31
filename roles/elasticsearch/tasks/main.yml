@@ -18,10 +18,11 @@
     name: elasticsearch
     state: latest
 
-- name: Enable elasticsearch service
+- name: Enable & start elasticsearch service
   service:
     name: elasticsearch
     enabled: yes
+    state: started
   notify:
     - 'Restart elasticsearch'
 
