@@ -4,6 +4,9 @@ dependencies:
   - role: php
   - role: geerlingguy.composer
   - role: postgresql
+    when: drupal9_db_engine == 'postgresql'
+  - role: mariadb
+    when: drupal9_db_engine == 'mariadb'
 
 argument_specs:
   main:
@@ -24,3 +27,9 @@ argument_specs:
         type: str
         required: yes
         description: The domain used in the nginx site configuration to access site
+      drupal9_db_engine:
+        type: str
+        choices:
+          - postgresql
+          - mariadb
+        default: mariadb

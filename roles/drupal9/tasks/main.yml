@@ -6,6 +6,7 @@
       - python3-psycopg2
       - postgresql-contrib # for pg_trgm
     state: present
+  when: drupal9_db_engine == 'postgresql'
 
 - name: As postgres
   become_user: postgres
@@ -22,6 +23,26 @@
         encoding: UTF-8
         owner: drupal
         state: present
+  when: drupal9_db_engine == 'postgresql'
+
+- name: As mariadb
+  block:
+    - name: Create database user
+      mysql_user:
+        name: drupal
+        password: '{{ drupal9_default_database_password }}'
+        state: present
+        login_password: '{{ drupal9_mariadb_root_password }}'
+        priv:
+          'drupal.*': 'ALL'
+
+    - name: Create database
+      mysql_db:
+        name: drupal
+        login_password: '{{ drupal9_mariadb_root_password }}'
+        state: present
+
+  when: drupal9_db_engine == 'mariadb'
 
 - name: Create deployment directory
   file:
@@ -35,9 +56,18 @@
     name:
       - php-xml # ext-dom
       - php-gd # ext-gd
-      - php-pgsql
       - php-mbstring
     state: latest
+
+- name: Install postgres php connector
+  apt:
+    name: php-pgsql
+  when: drupal9_db_engine == 'postgresql'
+
+- name: Install mariadb php connector
+  apt:
+    name: php-mysql
+  when: drupal9_db_engine == 'mariadb'
 
 - name: Check if drupal9 is already installed
   stat:
@@ -72,6 +102,13 @@
       command:
         cmd: '{{ drupal9_drush}} site:install -y --db-url=pgsql://drupal:{{ drupal9_default_database_password }}@localhost/drupal'
         chdir: '{{ drupal9_directory }}'
+      when: drupal9_db_engine == 'postgresql'
+
+    - name: Install drupal9 site
+      command:
+        cmd: '{{ drupal9_drush}} site:install -y --db-url=mysql://drupal:{{ drupal9_default_database_password }}@localhost/drupal'
+        chdir: '{{ drupal9_directory }}'
+      when: drupal9_db_engine == 'mariadb'
     
     - name: Set site name
       command:
@@ -82,6 +119,30 @@
       command:
         cmd: '{{ drupal9_drush }} user:password -y admin "{{ drupal9_default_admin_password }}"'
         chdir: '{{ drupal9_directory }}'
+
+    - name: Trusted host patterns (fixes some security issue)
+      tags: [ drupal9_settings.php ]
+      become_user: root
+      lineinfile:
+        regexp: "^$settings['trusted_host_patterns'] = "
+        path: '{{ drupal9_directory }}/web/sites/default/settings.php'
+        insertafter: EOF
+        line: "$settings['trusted_host_patterns'] = ['^{{ drupal9_domain | regex_replace('\\.', '\\.') }}$' ];"
+
+    - name: Create private files path
+      tags: [ drupal9_settings.php ]
+      file:
+        dest: '{{ drupal9_directory }}/private'
+        state: directory
+
+    - name: Private files path
+      tags: [ drupal9_settings.php ]
+      become_user: root
+      lineinfile:
+        regexp: "^$settings['file_private_path'] = "
+        path: '{{ drupal9_directory }}/web/sites/default/settings.php'
+        insertafter: EOF
+        line: "$settings['file_private_path'] = '{{ drupal9_directory }}/private';"
 
 - name: Update drupal installation if it exists already
   when: drupal_dir.stat.exists
