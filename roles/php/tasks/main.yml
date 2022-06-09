@@ -16,13 +16,18 @@
     - upload_max_filesize
     - post_max_size
 
-- name: Configure php-fpm to use msmtp for sending mail
+- name: Configure php-fpm to use msmtp for sending mail, disable fix_pathinfo
   lineinfile:
     path: /etc/php/7.4/fpm/php.ini
-    line: 'sendmail_path = "/usr/bin/msmtp -t -i"'
-    regexp: '^;sendmail_path ='
+    line: '{{ item.line }}'
+    regexp: '{{ item.regexp }}'
   notify:
     - 'Restart php-fpm'
+  loop:
+    - line: 'sendmail_path = "/usr/bin/msmtp -t -i"'
+      regexp: 'sendmail_path ='
+    - line: 'cgi.fix_pathinfo=0' # https://www.nginx.com/resources/wiki/start/topics/tutorials/config_pitfalls/
+      regexp: 'cgi.fix_pathinfo=$'
 
 - name: Enable service and start
   service:
