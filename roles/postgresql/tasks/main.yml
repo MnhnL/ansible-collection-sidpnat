@@ -5,6 +5,11 @@
     name: 'postgresql-{{ postgres_major_version }}'
     state: latest
 
+- name: Install postgres python library (to make ansible modules work)
+  apt:
+    name: python3-psycopg2
+    state: latest
+
 - name: Enable service
   service:
     name: postgresql
