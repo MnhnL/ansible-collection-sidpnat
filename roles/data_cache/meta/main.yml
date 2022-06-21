@@ -1,9 +1,0 @@
----
-
-argument_specs:
-  main:
-    options:
-      data_cache_deploy_directory:
-        type: str
-        required: yes
-        description: The directory where data_cache are installed in
