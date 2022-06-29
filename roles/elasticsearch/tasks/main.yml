@@ -26,7 +26,7 @@
   notify:
     - 'Restart elasticsearch'
 
-- name: Reset user elastic's password
-  shell:
-    cmd: "/usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -i -s <<< $'y\n{{ elasticsearch_password }}\n{{ elasticsearch_password }}\n'"
-    executable: /bin/bash
+# - name: Reset user elastic's password
+#   shell:
+#     cmd: "/usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -i -s <<< $'y\n{{ elasticsearch_password }}\n{{ elasticsearch_password }}\n'"
+#     executable: /bin/bash

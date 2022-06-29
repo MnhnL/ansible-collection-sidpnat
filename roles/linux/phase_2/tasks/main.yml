@@ -2,6 +2,11 @@
 
 - name: Remove provisioning user
   block:
+    - name: Pkill all process of provisioning user
+      command:
+        cmd: killall -9 -u provisioning
+      ignore_errors: yes
+
     # Remove the provisioning user who is allowed to login using password.
     - name: Delete provisioning user
       user:
