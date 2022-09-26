@@ -7,14 +7,18 @@
     
 - name: Set larger maximum upload and post size
   lineinfile:
-    regexp: '{{ item }} ='
-    line: '{{ item }} = 2G'
+    regexp: '{{ item.name }} ='
+    line: '{{ item.name }} = {{ item.value }}'
     path: /etc/php/7.4/fpm/php.ini
   notify:
     - 'Restart php-fpm'
   loop:
-    - upload_max_filesize
-    - post_max_size
+    - name: upload_max_filesize
+      value: '{{ php_fpm_max_filesize }}'
+    - name: post_max_size
+      value: '{{ php_fpm_max_filesize }}'
+    - name: memory_limit
+      value: '{{ php_fpm_memory_limit}}'
 
 - name: Configure php-fpm to use msmtp for sending mail, disable fix_pathinfo
   lineinfile:

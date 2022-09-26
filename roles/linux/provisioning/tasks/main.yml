@@ -102,6 +102,7 @@
         nameservers: "{{ provisioning_network_nameservers }}"
       # notify:
       #   - 'Apply netplan'
+  when: provisioning_network_configure
 
 - name: Update installation
   block:
@@ -122,7 +123,11 @@
           - acl # fixes some ansible become problems
           - htop
           - httpie
+          - ncdu
         state: present
+
+    - name: Create a big empty files that makes freeing up space easy in an emergency
+      command: fallocate -l 1G /big-empty-file
 
 - name: Restart sshd
   service:
@@ -133,6 +138,7 @@
   command: netplan apply
   async: 45
   poll: 0
+  when: provisioning_network_configure
 
 # - name: Set new IP address
 #   set_fact:

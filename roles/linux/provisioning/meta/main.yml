@@ -23,3 +23,6 @@ argument_specs:
         type: str
         description: Default nameserver
         required: yes
+      provisioning_network_configure:
+        type: bool
+        description: If changes to the network should be done

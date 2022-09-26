@@ -8,41 +8,40 @@
     state: present
   when: drupal9_db_engine == 'postgresql'
 
-- name: As postgres
-  become_user: postgres
-  block:
-    - name: Create database user
-      postgresql_user:
-        name: drupal
-        password: '{{ drupal9_default_database_password }}'
-        state: present
+# - name: As postgres
+#   become_user: postgres
+#   when: drupal9_db_engine == 'postgresql'
+#   block:
+#     - name: Create postgres database user
+#       postgresql_user:
+#         name: drupal
+#         password: '{{ drupal9_default_database_password }}'
+#         state: present
 
-    - name: Create drupal9 database
-      postgresql_db:
-        name: drupal
-        encoding: UTF-8
-        owner: drupal
-        state: present
-  when: drupal9_db_engine == 'postgresql'
+#     - name: Create drupal9 postgres database
+#       postgresql_db:
+#         name: drupal
+#         encoding: UTF-8
+#         owner: drupal
+#         state: present
 
-- name: As mariadb
-  block:
-    - name: Create database user
-      mysql_user:
-        name: drupal
-        password: '{{ drupal9_default_database_password }}'
-        state: present
-        login_password: '{{ drupal9_mariadb_root_password }}'
-        priv:
-          'drupal.*': 'ALL'
+# - name: As mariadb
+#   when: drupal9_db_engine == 'mariadb'
+#   block:
+#     - name: Create mariadb database user
+#       mysql_user:
+#         name: drupal
+#         password: '{{ drupal9_default_database_password }}'
+#         state: present
+#         login_password: '{{ drupal9_mariadb_root_password }}'
+#         priv:
+#           'drupal.*': 'ALL'
 
-    - name: Create database
-      mysql_db:
-        name: drupal
-        login_password: '{{ drupal9_mariadb_root_password }}'
-        state: present
-
-  when: drupal9_db_engine == 'mariadb'
+#     - name: Create mariadb database
+#       mysql_db:
+#         name: drupal
+#         login_password: '{{ drupal9_mariadb_root_password }}'
+#         state: present
 
 - name: Create deployment directory
   file:
@@ -57,7 +56,7 @@
       - php-xml # ext-dom
       - php-gd # ext-gd
       - php-mbstring
-    state: latest
+    state: present
 
 - name: Install postgres php connector
   apt:
@@ -121,7 +120,6 @@
         chdir: '{{ drupal9_directory }}'
 
     - name: Trusted host patterns (fixes some security issue)
-      tags: [ drupal9_settings.php ]
       become_user: root
       lineinfile:
         regexp: "^$settings['trusted_host_patterns'] = "
@@ -130,13 +128,11 @@
         line: "$settings['trusted_host_patterns'] = ['^{{ drupal9_domain | regex_replace('\\.', '\\.') }}$' ];"
 
     - name: Create private files path
-      tags: [ drupal9_settings.php ]
       file:
         dest: '{{ drupal9_directory }}/private'
         state: directory
 
     - name: Private files path
-      tags: [ drupal9_settings.php ]
       become_user: root
       lineinfile:
         regexp: "^$settings['file_private_path'] = "

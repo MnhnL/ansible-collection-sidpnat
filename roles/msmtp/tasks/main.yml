@@ -1,12 +1,11 @@
 ---
 
 - name: Install msmtp and configure
-  tags: [ msmtp ]
   block:
     - name: Install msmtp as replacement for sendmail
       apt:
         name: msmtp
-        state: latest
+        state: present
 
     - name: Install msmtprc config file
       template:

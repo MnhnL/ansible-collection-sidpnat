@@ -9,3 +9,13 @@ dependencies:
       msmtp_username: '{{ smtp_username }}'
       msmtp_password: '{{ smtp_password }}'
       msmtp_from: '{{ smtp_from  }}'
+
+argument_specs:
+  main:
+    options:
+      php_fpm_max_filesize:
+        type: str
+        description: The maximum upload and post filesize as allowed by php
+      php_fpm_memory_limit:
+        type: str
+        description: The php memory limit
