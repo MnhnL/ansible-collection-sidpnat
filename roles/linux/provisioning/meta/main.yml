@@ -1,0 +1,25 @@
+---
+
+argument_specs:
+  main:
+    options:
+      provisioning_new_hostname:
+        type: str
+        description: The new hostname
+        required: yes
+      provisioning_new_ip_address:
+        type: str
+        description: The new IP address
+        required: yes
+      provisioning_admin_users:
+        type: dict
+        description: A dict of admin users to be provisioned. The key is the username. It needs 'full_name', 'uid', 'pubkey' and 'shell'
+        required: yes
+      provisioning_network_default_gateway:
+        type: str
+        description: Default gateway
+        required: yes
+      provisioning_network_nameservers:
+        type: str
+        description: Default nameserver
+        required: yes

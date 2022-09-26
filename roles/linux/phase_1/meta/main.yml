@@ -1,9 +1,0 @@
----
-
-argument_specs:
-  main:
-    options:
-      phase_1_admin_users:
-        type: dict
-        required: yes
-        description: 'A list of dicts with name, full_name, uid, pubkey and shell. These users will be installed and given passwordless sudo access and ssh access through their pubkey'

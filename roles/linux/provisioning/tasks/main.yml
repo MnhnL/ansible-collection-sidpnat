@@ -1,0 +1,148 @@
+---
+
+# This role was written for Ubuntu Server LTS 20.04. The prerequisits are a
+# freshly installed server with a user provisioning with the password set as
+# defined in the vault variable vault_provisioning_user_password.
+
+# set hostname to eithe provisioning_hostname or if not set, inventory_hostnam. 1. case for initial provisioning, 2. case for later changes to network
+- name: Set hostname
+  hostname:
+    name: "{{ provisioning_new_hostname | default(inventory_hostname) }}"
+
+- name: Set hostname in hostname file
+  lineinfile:
+    state: present
+    path: /etc/hostname
+    line: "{{ provisioning_new_hostname | default(inventory_hostname) }}"
+
+- name: Accounts
+  block:
+    - name: Create admin users with empty passwords and add to sudo group
+      user:
+        state: present
+        name: '{{ item.key }}'
+        uid: '{{ item.value.uid }}'
+        comment: '{{ item.value.full_name }}'
+        shell: /usr/bin/bash
+        create_home: yes
+        groups: 'sudo'
+        append: yes
+      loop: '{{ provisioning_admin_users | dict2items }}'
+
+    - name: Allow sudo group member to use sudo without password
+      lineinfile:
+        path: /etc/sudoers
+        state: present
+        regexp: '^%sudo	ALL='
+        line: '%sudo	ALL=(ALL:ALL) NOPASSWD: ALL'
+        validate: /usr/sbin/visudo -cf %s
+
+- name: SSH
+  block:
+    - name: set up pubkey based auth by installing pubkeys
+      ansible.posix.authorized_key:
+        user: "{{ item.key }}"
+        state: present
+        key: "{{ item.value.pubkey }}"
+      loop: '{{ provisioning_admin_users | dict2items }}'
+
+    - name: switch off password based logins
+      lineinfile:
+        dest: /etc/ssh/sshd_config
+        regexp: "^#PasswordAuthentication"
+        line: PasswordAuthentication no
+      # notify:
+      #   - Restart sshd
+      #   - Reset connection
+
+- name: Disable provisioning user
+  user:
+    name: provisioning
+    password: '!'
+
+- name: Setup firewall
+  block:
+    - name: Reset Firewall
+      ufw: {state: reset}
+
+    - name: Disable Firewall
+      ufw: {state: disabled}
+
+    - name: Deny everything in
+      ufw:
+        default: deny
+        direction: incoming
+
+    - name: Allow everything going out
+      ufw:
+        default: allow
+        direction: outgoing
+
+    - name: Allow ssh for sure (but rate limited)
+      ufw:
+        rule: limit
+        port: ssh
+        proto: tcp
+
+    - name: Actually enable
+      ufw:
+        state: enabled # also reloads
+
+- name: Set IP to the one defined in host variable
+  block:
+    - name: Put configuration in netplan config
+      template:
+        src: 01-netcfg.yaml.j2
+        dest: /etc/netplan/01-netcfg.yaml
+        owner: root
+        group: root
+      vars:
+        ip_address: "{{ provisioning_new_ip_address | default(ansible_host) }}"
+        gateway: "{{ provisioning_network_default_gateway }}"
+        nameservers: "{{ provisioning_network_nameservers }}"
+      # notify:
+      #   - 'Apply netplan'
+
+- name: Update installation
+  block:
+    - name: remove cdrom from sources.list
+      lineinfile:
+        dest: /etc/apt/sources.list
+        regexp: '^deb \[check-date=no\] file:///cdrom focal main restricted'
+        line: "# deb [check-date=no] file:///cdrom focal main restricted"
+
+    # - name: Update Software
+    #   apt:
+    #     update_cache: yes
+    #     upgrade: safe
+
+    - name: Install tools
+      apt:
+        name:
+          - acl # fixes some ansible become problems
+          - htop
+          - httpie
+        state: present
+
+- name: Restart sshd
+  service:
+    name: sshd
+    state: restarted
+
+- name: Apply netplan
+  command: netplan apply
+  async: 45
+  poll: 0
+
+# - name: Set new IP address
+#   set_fact:
+#     ansible_host: '{{ provisioning_new_ip_address }}'
+
+# - name: Wait for the hosts network interface to come back up
+#   wait_for:
+#     host: "{{ provisioning_new_ip_address }}"
+#     port: 22
+#     delay: 10
+#     state: started
+#   delegate_to: localhost
+#   register: wait_result
