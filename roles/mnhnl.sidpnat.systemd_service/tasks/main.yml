@@ -1,0 +1,15 @@
+---
+
+- name: Write systemd unit for postgrest
+  tags: tabula
+  template:
+    src: unit.service.j2
+    dest: "/etc/systemd/system/{{ service_name }}.service"
+  vars:
+    service_name: "{{ systemd_service_name }}"
+    unit_description: "{{ systemd_service_unit_description }}"
+    service_exec_start: "{{ systemd_service_exec_start }}"
+    service_type: "{{ systemd_service_type }}"
+
+- name: Reload systemd unit
+  command: systemctl daemon-reload

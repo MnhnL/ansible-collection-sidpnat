@@ -1,0 +1,58 @@
+---
+
+- name: Ensure extraction dir exists
+  file:
+    path: "/tmp/nginx_site/{{ nginx_site_name }}"
+    state: directory
+
+- name: Install site htdocs to tmp
+  unarchive:
+    remote_src: yes
+    src: "{{ nginx_site_archive_src }}"
+    dest: "/tmp/nginx_site/{{ nginx_site_name }}"
+  when: nginx_site_archive_src
+
+- name: Ensure site roote exists
+  file:
+    path: "{{ nginx_site_root }}"
+    state: directory
+    group: www-data
+    owner: www-data
+
+- name: Copy site htdocs to destination
+  copy:
+    remote_src: yes
+    src: "/tmp/nginx_site/{{ nginx_site_name }}/{{ nginx_site_archive_subdir }}"
+    dest: "{{ nginx_site_root }}"
+  become_user: www-data
+
+- name: Install site file from template
+  template:
+    src: site.j2
+    dest: "/etc/nginx/sites-available/{{ nginx_site_name }}"
+  vars:
+    default_server: "{{ nginx_site_default_server }}"
+    root: "{{ nginx_site_root }}"
+    server_name: "{{ nginx_site_server_name }}"
+  when: nginx_site_state == "enabled"
+
+- name: Uninstall site file from template
+  file:
+    dest: "/etc/nginx/sites-available/{{ nginx_site_name }}"
+    state: absent
+  when: nginx_site_state == "disabled"
+
+- name: Enable site
+  file:
+    src: "/etc/nginx/sites-available/{{ nginx_site_name }}"
+    dest: "/etc/nginx/sites-enabled/{{ nginx_site_name }}"
+    state: link
+  when: nginx_site_state == "enabled"
+  notify: 'Nginx reload'
+
+- name: Disable site
+  file:
+    dest: "/etc/nginx/sites-enabled/{{ nginx_site_name }}"
+    state: absent
+  when: nginx_site_state == "disabled"
+  notify: 'Nginx reload'

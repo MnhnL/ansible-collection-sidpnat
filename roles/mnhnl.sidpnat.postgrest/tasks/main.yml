@@ -1,0 +1,53 @@
+---
+
+- name: Fetch sources
+  uri:
+    url: "https://github.com/PostgREST/postgrest/releases/download/v10.0.0/postgrest-v10.0.0-linux-static-x64.tar.xz"
+    dest: /tmp/postgrest-{{ postgrest_version }}.tar.xz
+    creates: /tmp/postgrest-{{ postgrest_version }}.tar.xz
+
+- name: Download and extract postgrest
+  unarchive:
+    remote_src: yes
+    src: /tmp/postgrest-{{ postgrest_version }}.tar.xz
+    dest: /tmp/
+
+- name: Ensure postgrets install dir exists
+  file:
+    name: /srv/postgrest
+    state: directory
+
+- name: Install
+  copy:
+    remote_src: yes
+    src: /tmp/postgrest
+    dest: /srv/postgrest
+    mode: +x
+
+- name: Write postgrest config files
+  template:
+    src: postgrest.conf.j2
+    dest: /srv/postgrest/postgrest.conf
+  vars:
+    db_uri: "{{ postgrest_db_uri }}"
+    db_schema: "{{ postgrest_db_schema|default('public') }}"
+    db_anon_role: "{{ postgrest_db_anon_role|default('web_anon') }}"
+    server_port: "{{ postgrest_server_port|default(3000) }}"
+
+- name: Write, load systemd unit for postgrest
+  tags: postgrest
+  import_role:
+    name: mnhnl.sidpnat.systemd_service
+  vars:
+    systemd_service_name: postgrest
+    systemd_service_unit_description: Postgrest daemon serving a postgresql database as a REST API
+    systemd_service_type: simple
+    systemd_service_exec_start: /srv/postgrest/postgrest /srv/postgrest/postgrest.conf
+    systemd_service_status: enabled
+
+- name: Enable & start postgrest
+  tags: postgrest
+  service:
+    name: postgrest
+    enabled: yes
+    state: started
