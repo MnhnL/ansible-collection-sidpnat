@@ -16,8 +16,9 @@
     line: "{{ provisioning_new_hostname | default(inventory_hostname) }}"
 
 - name: Accounts
+  tags: users
   block:
-    - name: Create admin users with empty passwords and add to sudo group
+    - name: Create admin users with empty passwords and add to extra groups
       user:
         state: present
         name: '{{ item.key }}'
@@ -25,7 +26,7 @@
         comment: '{{ item.value.full_name }}'
         shell: /usr/bin/bash
         create_home: yes
-        groups: 'sudo'
+        groups: '{{ item.extra_groups | default("") }}'
         append: yes
       loop: '{{ provisioning_admin_users | dict2items }}'
 
@@ -38,6 +39,7 @@
         validate: /usr/sbin/visudo -cf %s
 
 - name: SSH
+  tags: users
   block:
     - name: set up pubkey based auth by installing pubkeys
       ansible.posix.authorized_key:
