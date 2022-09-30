@@ -9,7 +9,7 @@
         state: present
 
     - name: have certbot get a certificate and configure nginx and install systemd timer or renew
-      command: 'certbot --nginx --expand --domains {{ domain }} --email {{ email }} --agree-tos --non-interactive --redirect'
+      command: 'certbot --nginx --expand --domains {{ domains | join(",") }} --email {{ email }} --agree-tos --non-interactive --redirect'
       notify: 'Restart nginx'
 
     # TODO: Make a trigger that re-changes nginx config files. This can be triggered wheneve nginx configs are changed from other roles

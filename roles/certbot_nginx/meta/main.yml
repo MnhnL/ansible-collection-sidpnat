@@ -3,10 +3,10 @@
 argument_specs:
   main:
     options:
-      domain:
-        type: str
+      domains:
+        type: list
         required: yes
-        description: The domain to get the certificate for
+        description: The domains to get the certificate for
 
       email:
         type: str
