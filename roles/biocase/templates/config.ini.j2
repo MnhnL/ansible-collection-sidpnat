@@ -1,0 +1,34 @@
+# --------------------------------------------------------------------------------
+# INSTALLATION WIDE CONFIGURATION
+# PLEASE ADJUST THESE SETTINGS TO YOUR ENVIRONMENT 
+# --------------------------------------------------------------------------------
+
+[server]
+adminpassword  =  {{ admin_password }}
+annosys_baseurl  =  https://annosys.bgbm.fu-berlin.de/AnnoSys
+archive_expiration  =  0
+debug  =  False
+graphviz_dot  =  {{ graphviz_dot_path }}
+host  =  {{ host_uri }}
+java  =  java
+java_mem  =  1024
+pickle  =  True
+prettyprint  =  True
+recLimit  =  1000
+sort_size  =  100000
+webroot  =  {{ web_root }}
+xmlarchiving_retries  =  0
+
+[querytool]
+skin  =  default
+
+[logging]
+debug_backupcount  =  3
+debug_maxbytes  =  20485760
+error_backupcount  =  9
+error_maxbytes  =  20485760
+request_backupcount  =  99
+request_maxbytes  =  10485760
+
+[login]
+expire  =  1800

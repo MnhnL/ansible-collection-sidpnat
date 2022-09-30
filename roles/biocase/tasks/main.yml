@@ -1,0 +1,67 @@
+---
+
+- name: Install dependencies
+  apt:
+    name:
+      - fcgiwrap # Needed since nginx does not know how to do CGI, only FastCGI
+      - graphviz
+      - python3-pymssql
+    state: present
+
+- name: Ensure fcgiwrap service conf directory exists
+  file:
+    path: /etc/systemd/system/fcgiwrap.service.d
+    state: directory
+
+- name: Set PYTHONPATH for cgi scripts (so that cgi scripts find lib/**)
+  template:
+    src: fcgiwrap_env.conf.j2
+    dest: /etc/systemd/system/fcgiwrap.service.d/fcgiwrap_env.conf
+  vars:
+    pythonpath: '{{ biocase_root }}/lib'
+
+- name: Reload systemd daemon to load new overrides
+  systemd:
+    daemon_reload: yes
+
+- name: Run fcgiwrap listening on /run/fcgiwrap.socket
+  service:
+    name: fcgiwrap
+    enabled: yes
+    state: restarted
+
+- name: Install nginx site file
+  import_role:
+    name: mnhnl.sidpnat.nginx_site
+  vars:
+    nginx_site_type: fastcgi
+    nginx_site_name: '{{ biocase_site_name }}'
+    nginx_site_archive_src: 'https://www.biocase.org/products/provider_software/files/provider_software_{{ biocase_version }}.tar.gz'
+    nginx_site_archive_subdir: 'provider_software_{{ biocase_version }}/'
+    nginx_site_fastcgi_pass: unix:/var/run/fcgiwrap.socket
+    nginx_site_install_root: '{{ biocase_root }}'
+    nginx_site_root: '{{ biocase_root }}/www'
+    nginx_site_server_names: '{{ biocase_server_names }}'
+    nginx_site_https: yes
+    nginx_site_state: enabled
+    nginx_site_default_server: no
+    nginx_site_fastcgi_SCRIPT_FILENAME: '$document_root$fastcgi_script_name'
+    nginx_site_index: index.html
+
+- name: Install biocase config file
+  template:
+    src: config.ini.j2
+    dest: '{{ biocase_root }}/config/config.ini'
+  vars:
+    admin_password: '{{ biocase_admin_password }}'
+    graphviz_dot_path: /usr/bin/dot
+    host_uri: 'https://{{ biocase_server_names[0] }}'
+    web_root: /
+
+- name: Make cgi files executable for everyone (otherwise fcgiwrap won't execute them)
+  command:
+    cmd: "find {{ biocase_root }} -name '*.cgi' -exec chmod +x {} \\;"
+
+- name: Fix python path in cgi scripts (since official release points to hardcoded windows python path)
+  command:
+    cmd: "find {{ biocase_root }} -name '*.cgi' -exec sed -i 's|#!c:\\\\Program Files\\\\Python39\\\\python.exe|#!/usr/bin/env python3|' {} \\;"
