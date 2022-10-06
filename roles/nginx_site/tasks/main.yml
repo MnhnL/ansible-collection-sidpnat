@@ -4,13 +4,14 @@
   file:
     path: "/tmp/nginx_site/{{ nginx_site_name }}"
     state: directory
+  when: nginx_site_archive_src is defined
 
 - name: Install site htdocs to tmp
   unarchive:
     remote_src: yes
     src: "{{ nginx_site_archive_src }}"
     dest: "/tmp/nginx_site/{{ nginx_site_name }}"
-  when: nginx_site_archive_src
+  when: nginx_site_archive_src is defined
 
 - name: Ensure site root exists
   file:
@@ -18,6 +19,7 @@
     state: directory
     group: www-data
     owner: www-data
+  when: nginx_site_archive_src is defined
 
 - name: Copy site htdocs to destination
   copy:
@@ -25,6 +27,7 @@
     src: "/tmp/nginx_site/{{ nginx_site_name }}/{{ nginx_site_archive_subdir }}"
     dest: "{{ nginx_site_install_root }}"
   become_user: www-data
+  when: nginx_site_archive_src is defined
 
 - name: Install site file from template (static)
   template:
@@ -52,6 +55,21 @@
     main_location: "{{ nginx_site_main_location }}"
     cgi_location: "{{ nginx_site_cgi_location }}"
   when: nginx_site_state == "enabled" and nginx_site_type == 'cgi'
+
+- name: Install site file from template (proxy)
+  template:
+    src: site_proxy.j2
+    dest: "/etc/nginx/sites-available/{{ nginx_site_name }}"
+  vars:
+    default_server: "{{ nginx_site_default_server }}"
+    root: "{{ nginx_site_root }}"
+    server_name: "{{ nginx_site_server_names|join(' ') }}"
+    proxy_pass: "{{ nginx_site_proxy_pass }}"
+    index: "{{ nginx_site_index }}"
+    main_location: "{{ nginx_site_main_location }}"
+    proxy_location: "{{ nginx_site_proxy_location }}"
+    proxy_redirect_main_to: "{{ nginx_site_proxy_redirect_main_to }}"
+  when: nginx_site_state == "enabled" and nginx_site_type == 'proxy'
 
 - name: Uninstall site file from template
   file:

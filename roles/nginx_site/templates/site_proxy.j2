@@ -1,0 +1,20 @@
+server {
+    listen 80{% if default_server %} default_server{% endif %};
+    listen [::]:80{% if default_server %} default_server{% endif %};
+
+    root {{ root }};
+
+    # Add index.php to the list if you are using PHP
+    index {{ index }};
+
+    server_name {{ server_name }};
+
+    location {{ proxy_location }} {
+    	proxy_pass {{ proxy_pass }};
+    }
+
+    # redirect root to application
+    location {{ main_location }} {
+        return 301 {{ proxy_redirect_main_to }};
+    }
+}
