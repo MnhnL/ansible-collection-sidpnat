@@ -34,7 +34,7 @@
   import_role:
     name: mnhnl.sidpnat.nginx_site
   vars:
-    nginx_site_type: fastcgi
+    nginx_site_type: cgi
     nginx_site_name: '{{ biocase_site_name }}'
     nginx_site_archive_src: 'https://www.biocase.org/products/provider_software/files/provider_software_{{ biocase_version }}.tar.gz'
     nginx_site_archive_subdir: 'provider_software_{{ biocase_version }}/'
@@ -47,6 +47,7 @@
     nginx_site_default_server: no
     nginx_site_fastcgi_SCRIPT_FILENAME: '$document_root$fastcgi_script_name'
     nginx_site_index: index.html
+    nginx_cgi_location: '~ \\.cgi$'
 
 - name: Install biocase config file
   template:

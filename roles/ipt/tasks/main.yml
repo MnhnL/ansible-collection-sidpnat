@@ -156,7 +156,8 @@
       include_role:
         name: mnhnl.sidpnat.certbot_nginx
       vars:
-        domain: '{{ ipt_domain }}'
+        domains:
+          - '{{ ipt_domain }}'
         email: '{{ domain_contact_email }}'
 
     - name: Notify

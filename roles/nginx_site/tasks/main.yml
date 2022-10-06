@@ -34,11 +34,13 @@
     default_server: "{{ nginx_site_default_server }}"
     root: "{{ nginx_site_root }}"
     server_name: "{{ nginx_site_server_name }}"
+    index: "{{ nginx_site_index }}"
+    main_location: "{{ nginx_site_main_location }}"
   when: nginx_site_state == "enabled" and nginx_site_type == 'static'
 
-- name: Install site file from template (fastcgi)
+- name: Install site file from template (cgi)
   template:
-    src: site_fastcgi.j2
+    src: site_cgi.j2
     dest: "/etc/nginx/sites-available/{{ nginx_site_name }}"
   vars:
     default_server: "{{ nginx_site_default_server }}"
@@ -47,7 +49,9 @@
     fastcgi_pass: "{{ nginx_site_fastcgi_pass }}"
     fastcgi_SCRIPT_FILENAME: "{{ nginx_site_fastcgi_SCRIPT_FILENAME }}"
     index: "{{ nginx_site_index }}"
-  when: nginx_site_state == "enabled" and nginx_site_type == 'fastcgi'
+    main_location: "{{ nginx_site_main_location }}"
+    cgi_location: "{{ nginx_site_cgi_location }}"
+  when: nginx_site_state == "enabled" and nginx_site_type == 'cgi'
 
 - name: Uninstall site file from template
   file:
