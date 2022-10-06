@@ -120,24 +120,20 @@
     name: tomcat9
     enabled: yes
 
-- name: Configure nginx for IPT
-  block:
-    - name: configure nginx to access ipt. Also configures http>https forwarding and letsencrypt
-      template:
-        src: gbif.mnhn.lu.j2
-        dest: /etc/nginx/sites-available/gbif.mnhn.lu
-      notify:
-        - 'Restart nginx'
+- name: Install nginx site file
+  import_role:
+    name: mnhnl.sidpnat.nginx_site
+  vars:
+    nginx_site_type: fastcgi
+    nginx_site_name: ipt
+    nginx_site_proxy_pass: 'http://localhost:8080/ipt'
+    nginx_site_proxy_location: '/ipt'
+    nginx_site_root: /var/lib/ipt # not really used
+    nginx_site_server_names: [ "{{ ipt_domain }" ]
+    nginx_site_proxy_redirect_main_to: "https://{{ ipt_domain }}/ipt/"
+  notify:
+    - 'Restart tomcat9'
 
-    - name: make site enabled
-      file:
-        src: /etc/nginx/sites-available/gbif.mnhn.lu
-        dest: /etc/nginx/sites-enabled/gbif.mnhn.lu
-        state: link
-      notify:
-        - 'Restart nginx'
-        - 'Restart tomcat9'
-    
 - name: Configure Firewall
   block:
     - name: Allow http and https
