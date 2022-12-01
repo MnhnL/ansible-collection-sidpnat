@@ -121,17 +121,21 @@
     enabled: yes
 
 - name: Install nginx site file
+  tags: nginx
   import_role:
     name: mnhnl.sidpnat.nginx_site
   vars:
-    nginx_site_type: fastcgi
+    nginx_site_type: proxy
+    nginx_site_state: enabled
     nginx_site_name: ipt
     nginx_site_proxy_pass: 'http://localhost:8080/ipt'
     nginx_site_proxy_location: '/ipt'
     nginx_site_root: /var/lib/ipt # not really used
-    nginx_site_server_names: [ "{{ ipt_domain }" ]
+    nginx_site_server_names: [ "{{ ipt_domain }}" ]
     nginx_site_proxy_redirect_main_to: "https://{{ ipt_domain }}/ipt/"
+    nginx_site_domain_contact_email: '{{ domain_contact_email }}'
   notify:
+    - 'Configure ipt.properties'
     - 'Restart tomcat9'
 
 - name: Configure Firewall
@@ -144,20 +148,3 @@
       loop:
         - http
         - https
-
-- name: Setup https with letsencrypt certificate
-  tags: https
-  block:
-    - name: letsencrypt
-      include_role:
-        name: mnhnl.sidpnat.certbot_nginx
-      vars:
-        domains:
-          - '{{ ipt_domain }}'
-        email: '{{ domain_contact_email }}'
-
-    - name: Notify
-      command: echo "Notify"
-      notify:
-        - 'Configure ipt.properties'
-        - 'Restart tomcat9'
