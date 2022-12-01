@@ -6,3 +6,6 @@ argument_specs:
       postgres_major_version:
         type: int
         default: yes
+      postgres_extra_modules:
+        type: list
+        default: yes

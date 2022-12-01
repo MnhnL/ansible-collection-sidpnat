@@ -3,7 +3,13 @@
 - name: Install postgresql from apt
   apt:
     name: 'postgresql-{{ postgres_major_version }}'
-    state: latest
+    state: present
+
+- name: Install postgresql extra modules
+  apt:
+    name: 'postgresql-{{ item }}-{{ postgres_major_version }}'
+    state: present
+  loop: '{{ postgres_extra_modules }}'
 
 - name: Install postgres python library (to make ansible modules work)
   apt:

@@ -1,3 +1,4 @@
 ---
 
 postgres_major_version: 12
+postgres_extra_modules: []
