@@ -63,6 +63,7 @@
     password: '!'
 
 - name: Setup firewall
+  tags: firewall
   block:
     - name: Reset Firewall
       ufw: {state: reset}
@@ -91,6 +92,7 @@
         state: enabled # also reloads
 
 - name: Set IP to the one defined in host variable
+  tags: network
   block:
     - name: Put configuration in netplan config
       template:
@@ -102,11 +104,13 @@
         ip_address: "{{ provisioning_new_ip_address | default(ansible_host) }}"
         gateway: "{{ provisioning_network_default_gateway }}"
         nameservers: "{{ provisioning_network_nameservers }}"
+        dhcp: "{{ provisioning_network_dhcp | default(false) }}"
       # notify:
       #   - 'Apply netplan'
   when: provisioning_network_configure
 
 - name: Update installation
+  tags: software
   block:
     - name: remove cdrom from sources.list
       lineinfile:
@@ -137,6 +141,7 @@
     state: restarted
 
 - name: Apply netplan
+  tags: network
   command: netplan apply
   async: 45
   poll: 0

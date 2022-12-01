@@ -6,11 +6,15 @@ argument_specs:
       provisioning_new_hostname:
         type: str
         description: The new hostname
-        required: yes
+        required: no
       provisioning_new_ip_address:
         type: str
         description: The new IP address
-        required: yes
+        required: no
+      provisioning_network_dhcp:
+        type: bool
+        description: If dhcp should be used instead of a fix IP address
+        default: no
       provisioning_admin_users:
         type: dict
         description: A dict of admin users to be provisioned. The key is the username. It needs 'full_name', 'uid', 'pubkey' and 'shell'

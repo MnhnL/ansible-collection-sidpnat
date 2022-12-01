@@ -3,6 +3,9 @@ network:
   renderer: networkd
   ethernets:
     ens160:
+{% if dhcp %}
+      dhcp4: yes
+{% else %}
       dhcp4: no
       addresses:
         - {{ ip_address }}/21
@@ -11,3 +14,4 @@ network:
         search:
           - hisnat.local # enables nameserver to resolve .local domains instead of mDNS
         addresses: {{ nameservers }}
+{% endif %}
