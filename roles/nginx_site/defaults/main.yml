@@ -1,6 +1,7 @@
 ---
 # defaults file for mnhnl.sidpnat.nginx_site
 
-index: index.html
-default_server: no
-main_location: '/'
+nginx_site_index: index.html
+nginx_site_default_server: no
+nginx_site_main_location: '/'
+nginx_site_https: yes

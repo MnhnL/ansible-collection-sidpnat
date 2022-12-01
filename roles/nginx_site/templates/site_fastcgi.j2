@@ -1,0 +1,36 @@
+server {
+    listen 80{% if default_server %} default_server{% endif %};
+    listen [::]:80{% if default_server %} default_server{% endif %};
+
+    root {{ root }};
+
+    index {{ index }};
+
+    server_name {{ server_name }};
+
+    location {{ fastcgi_location }} {
+        # Disable gzip (it makes scripts feel slower since they have to complete
+        # before getting gzipped)
+        gzip off;
+
+        # Fastcgi parameters, include the standard ones
+	include snippets/fastcgi-php.conf;
+
+	fastcgi_intercept_errors on;
+
+	# Fastcgi socket
+        fastcgi_pass {{ fastcgi_pass }};
+    }
+
+    location {{ main_location }} {
+        try_files $uri $uri/ /index.php =404;
+    }
+
+{% for ul in upload_locations %}
+    location {{ ul }} {
+       location ~ \.php$ { return 404; }
+    }
+    
+{% endfor %}
+
+}

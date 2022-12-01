@@ -36,7 +36,7 @@
   vars:
     default_server: "{{ nginx_site_default_server }}"
     root: "{{ nginx_site_root }}"
-    server_name: "{{ nginx_site_server_name }}"
+    server_name: "{{ nginx_site_server_names|join(' ') }}"
     index: "{{ nginx_site_index }}"
     main_location: "{{ nginx_site_main_location }}"
   when: nginx_site_state == "enabled" and nginx_site_type == 'static'
@@ -71,6 +71,21 @@
     proxy_redirect_main_to: "{{ nginx_site_proxy_redirect_main_to }}"
   when: nginx_site_state == "enabled" and nginx_site_type == 'proxy'
 
+- name: Install site file from template (fastcgi)
+  template:
+    src: site_fastcgi.j2
+    dest: "/etc/nginx/sites-available/{{ nginx_site_name }}"
+  vars:
+    default_server: "{{ nginx_site_default_server }}"
+    root: "{{ nginx_site_root }}"
+    server_name: "{{ nginx_site_server_names|join(' ') }}"
+    fastcgi_pass: "{{ nginx_site_fastcgi_pass }}"
+    index: "{{ nginx_site_index }}"
+    fastcgi_location: "{{ nginx_site_fastcgi_location }}"
+    main_location: "{{ nginx_site_main_location }}"
+    upload_locations: "{{ nginx_site_upload_locations }}"
+  when: nginx_site_state == "enabled" and nginx_site_type == 'fastcgi'
+  
 - name: Uninstall site file from template
   file:
     dest: "/etc/nginx/sites-available/{{ nginx_site_name }}"
@@ -94,5 +109,13 @@
 
 - name: Add hosts to nginx_site_https_hosts if necessary
   set_fact:
-    nginx_site_https_hosts: '{{ nginx_site_https_hosts|default([]) + nginx_site_server_names }}'
+    nginx_site_https_hosts: '{{ nginx_site_https_hosts|default([]) }}'
   when: nginx_site_https
+
+- name: Install https certificates
+  import_role:
+    name: mnhnl.sidpnat.certbot_nginx
+  vars:
+    domains: '{{ nginx_site_https_hosts }}'
+    email: '{{ nginx_site_domain_contact_email }}'
+  when: nginx_site_domain_contact_email is defined
