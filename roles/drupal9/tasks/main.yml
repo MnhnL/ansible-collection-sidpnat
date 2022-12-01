@@ -160,6 +160,7 @@
         chdir: '{{ drupal9_directory }}'
 
 - name: Configure nginx to serve drupal9
+  tags: nginx
   template:
     src: drupal9.j2
     dest: /etc/nginx/sites-available/drupal9
@@ -171,6 +172,7 @@
     'Reload nginx'
 
 - name: Activate site
+  tags: nginx
   file:
     src: /etc/nginx/sites-available/drupal9
     dest: /etc/nginx/sites-enabled/drupal9
