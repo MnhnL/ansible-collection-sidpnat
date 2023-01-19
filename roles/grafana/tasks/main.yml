@@ -10,14 +10,14 @@
 
 - name: Add grafana labs key to apt
   get_url:
-    url: 'https://packages.grafana.com/gpg.key'
+    url: 'https://apt.grafana.com/gpg.key'
     dest: /etc/apt/trusted.gpg.d/grafana.asc
     mode: 0644
 
 - name: Add sources to apt
   apt_repository:
     state: present
-    repo: 'deb https://packages.grafana.com/oss/deb stable main'
+    repo: 'deb https://apt.grafana.com stable main'
     filename: grafana
 
 - name: Install grafana
