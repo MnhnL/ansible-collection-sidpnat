@@ -4,7 +4,9 @@
 # freshly installed server with a user provisioning with the password set as
 # defined in the vault variable vault_provisioning_user_password.
 
-# set hostname to eithe provisioning_hostname or if not set, inventory_hostnam. 1. case for initial provisioning, 2. case for later changes to network
+# set hostname to eithe provisioning_hostname or if not set,
+# inventory_hostname. 1. case for initial provisioning, 2. case for
+# later changes to network
 - name: Set hostname
   hostname:
     name: "{{ provisioning_new_hostname | default(inventory_hostname) }}"

@@ -160,22 +160,53 @@
         chdir: '{{ drupal9_directory }}'
 
 - name: Configure nginx to serve drupal9
-  tags: nginx
-  template:
-    src: drupal9.j2
-    dest: /etc/nginx/sites-available/drupal9
+  tags: always
+  include_role:
+    name: mnhnl.sidpnat.nginx_site
+    apply:
+      tags: drupal9_nginx
   vars:
-    root: '{{ drupal9_deploy_directory }}/drupal9/web'
-    host: '{{ drupal9_domain }}'
-    socket_path: '/var/run/php/php-fpm.sock'
-  notify:
-    'Reload nginx'
+    nginx_site_name: drupal9
+    nginx_site_type: fastcgi
+    nginx_site_index: index.html index.php
+    nginx_site_root: '{{ drupal9_deploy_directory }}/drupal9/web'
+    nginx_site_server_names: [ '{{ drupal9_domain }}' ]
+    nginx_site_default_server: yes
+    nginx_site_fastcgi_location: '~ \.php|^/update.php'
+    nginx_site_fastcgi_pass: 'unix:/var/run/php/php-fpm.sock'
+    nginx_site_https: yes
+    nginx_site_https_hosts: [ '{{ drupal9_domain }}' ]
+    nginx_site_domain_contact_email: '{{ domain_contact_email }}'
+    nginx_site_404_locations:
+      - '~* \.(txt|log)$'
+      - '~ \..*/.*\.php$'
+      - '~ ^/sites/.*/private/'
+      - '~ ^/sites/[^/]+/files/.*\.php$'
+      - '~ (^|/)\.'
+      - '~ /vendor/.*\.php$'
+      - '~* \.(engine|inc|install|make|module|profile|po|sh|.*sql|theme|twig|tpl(\.php)?|xtmpl|yml)(~|\.sw[op]|\.bak|\.orig|\.save)?$|^(\.(?!well-known).*|Entries.*|Repository|Root|Tag|Template|composer\.(json|lock)|web\.config)$|^#.*#$|\.php(~|\.sw[op]|\.bak|\.orig|\.save)$'
+    nginx_site_allow_locations:
+      - '= /robots.txt'
+      - '= /favicon.ico'
+      - '~* ^/.well-known/'
+    nginx_site_state: enabled
 
-- name: Activate site
-  tags: nginx
-  file:
-    src: /etc/nginx/sites-available/drupal9
-    dest: /etc/nginx/sites-enabled/drupal9
-    state: link
-  notify:
-    'Reload nginx'
+#   tags: nginx
+#   template:
+#     src: drupal9.j2
+#     dest: /etc/nginx/sites-available/drupal9
+#   vars:
+#     root: '{{ drupal9_deploy_directory }}/drupal9/web'
+#     host: '{{ drupal9_domain }}'
+#     socket_path: '/var/run/php/php-fpm.sock'
+#   notify:
+#     'Reload nginx'
+
+# - name: Activate site
+#   tags: nginx
+#   file:
+#     src: /etc/nginx/sites-available/drupal9
+#     dest: /etc/nginx/sites-enabled/drupal9
+#     state: link
+#   notify:
+#     'Reload nginx'
