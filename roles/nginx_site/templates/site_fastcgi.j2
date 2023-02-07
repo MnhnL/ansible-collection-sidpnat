@@ -30,7 +30,18 @@ server {
     location {{ ul }} {
        location ~ \.php$ { return 404; }
     }
-    
+{% endfor %}
+
+{% for loc in fourohfour_locations %}
+    location {{ loc }} {
+       return 404;
+    }
+{% endfor %}
+
+{% for loc in allow_locations %}
+    location {{ loc }} {
+       allow all;
+    }
 {% endfor %}
 
 }

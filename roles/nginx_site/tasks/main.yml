@@ -29,62 +29,52 @@
   become_user: www-data
   when: nginx_site_archive_src is defined
 
-- name: Install site file from template (static)
-  template:
-    src: site_static.j2
-    dest: "/etc/nginx/sites-available/{{ nginx_site_name }}"
+- name: Install site file
   vars:
     default_server: "{{ nginx_site_default_server }}"
     root: "{{ nginx_site_root }}"
     server_name: "{{ nginx_site_server_names|join(' ') }}"
     index: "{{ nginx_site_index }}"
     main_location: "{{ nginx_site_main_location }}"
-  when: nginx_site_state == "enabled" and nginx_site_type == 'static'
-
-- name: Install site file from template (cgi)
-  template:
-    src: site_cgi.j2
-    dest: "/etc/nginx/sites-available/{{ nginx_site_name }}"
-  vars:
-    default_server: "{{ nginx_site_default_server }}"
-    root: "{{ nginx_site_root }}"
-    server_name: "{{ nginx_site_server_names|join(' ') }}"
-    fastcgi_pass: "{{ nginx_site_fastcgi_pass }}"
-    fastcgi_SCRIPT_FILENAME: "{{ nginx_site_fastcgi_SCRIPT_FILENAME }}"
-    index: "{{ nginx_site_index }}"
-    main_location: "{{ nginx_site_main_location }}"
-    cgi_location: "{{ nginx_site_cgi_location }}"
-  when: nginx_site_state == "enabled" and nginx_site_type == 'cgi'
-
-- name: Install site file from template (proxy)
-  template:
-    src: site_proxy.j2
-    dest: "/etc/nginx/sites-available/{{ nginx_site_name }}"
-  vars:
-    default_server: "{{ nginx_site_default_server }}"
-    root: "{{ nginx_site_root }}"
-    server_name: "{{ nginx_site_server_names|join(' ') }}"
-    proxy_pass: "{{ nginx_site_proxy_pass }}"
-    index: "{{ nginx_site_index }}"
-    main_location: "{{ nginx_site_main_location }}"
-    proxy_location: "{{ nginx_site_proxy_location }}"
-    proxy_redirect_main_to: "{{ nginx_site_proxy_redirect_main_to }}"
-  when: nginx_site_state == "enabled" and nginx_site_type == 'proxy'
-
-- name: Install site file from template (fastcgi)
-  template:
-    src: site_fastcgi.j2
-    dest: "/etc/nginx/sites-available/{{ nginx_site_name }}"
-  vars:
-    default_server: "{{ nginx_site_default_server }}"
-    root: "{{ nginx_site_root }}"
-    server_name: "{{ nginx_site_server_names|join(' ') }}"
-    fastcgi_pass: "{{ nginx_site_fastcgi_pass }}"
-    index: "{{ nginx_site_index }}"
-    fastcgi_location: "{{ nginx_site_fastcgi_location }}"
-    main_location: "{{ nginx_site_main_location }}"
-    upload_locations: "{{ nginx_site_upload_locations }}"
-  when: nginx_site_state == "enabled" and nginx_site_type == 'fastcgi'
+    upload_locations: "{{ nginx_site_upload_locations }}" # TODO: Put in all templates
+    fourohfour_locations: "{{ nginx_site_404_locations }}"  # TODO: Put in all templates
+    allow_locations: "{{ nginx_site_allow_locations }}" # TODO: Put in all templates
+  when: nginx_site_state == 'enabled'
+  block:
+  - name: Install site file from template (static)
+    template:
+      src: site_static.j2
+      dest: "/etc/nginx/sites-available/{{ nginx_site_name }}"
+    when: nginx_site_type == 'static'
+  
+  - name: Install site file from template (cgi)
+    template:
+      src: site_cgi.j2
+      dest: "/etc/nginx/sites-available/{{ nginx_site_name }}"
+    vars:
+      fastcgi_pass: "{{ nginx_site_fastcgi_pass }}"
+      fastcgi_SCRIPT_FILENAME: "{{ nginx_site_fastcgi_SCRIPT_FILENAME }}"
+      cgi_location: "{{ nginx_site_cgi_location }}"
+    when: nginx_site_type == 'cgi'
+  
+  - name: Install site file from template (proxy)
+    template:
+      src: site_proxy.j2
+      dest: "/etc/nginx/sites-available/{{ nginx_site_name }}"
+    vars:
+      proxy_pass: "{{ nginx_site_proxy_pass }}"
+      proxy_location: "{{ nginx_site_proxy_location }}"
+      proxy_redirect_main_to: "{{ nginx_site_proxy_redirect_main_to }}"
+    when: nginx_site_type == 'proxy'
+  
+  - name: Install site file from template (fastcgi)
+    template:
+      src: site_fastcgi.j2
+      dest: "/etc/nginx/sites-available/{{ nginx_site_name }}"
+    vars:
+      fastcgi_pass: "{{ nginx_site_fastcgi_pass }}"
+      fastcgi_location: "{{ nginx_site_fastcgi_location }}"
+    when: nginx_site_type == 'fastcgi'
   
 - name: Uninstall site file from template
   file:
@@ -113,9 +103,10 @@
   when: nginx_site_https
 
 - name: Install https certificates
-  import_role:
+  include_role:
     name: mnhnl.sidpnat.certbot_nginx
   vars:
     domains: '{{ nginx_site_https_hosts }}'
     email: '{{ nginx_site_domain_contact_email }}'
   when: nginx_site_domain_contact_email is defined
+  

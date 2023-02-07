@@ -5,3 +5,6 @@ nginx_site_index: index.html
 nginx_site_default_server: no
 nginx_site_main_location: '/'
 nginx_site_https: yes
+nginx_site_upload_locations: []
+nginx_site_404_locations: []
+nginx_site_allow_locations: []
