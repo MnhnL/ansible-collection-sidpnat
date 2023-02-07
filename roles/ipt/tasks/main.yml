@@ -134,6 +134,7 @@
     nginx_site_server_names: [ "{{ ipt_domain }}" ]
     nginx_site_proxy_redirect_main_to: "https://{{ ipt_domain }}/ipt/"
     nginx_site_domain_contact_email: '{{ domain_contact_email }}'
+    nginx_site_https_hosts: [ "{{ ipt_domain }}" ]
   notify:
     - 'Configure ipt.properties'
     - 'Restart tomcat9'
