@@ -22,11 +22,11 @@ argument_specs:
       provisioning_network_default_gateway:
         type: str
         description: Default gateway
-        required: yes
+        required: no
       provisioning_network_nameservers:
         type: str
         description: Default nameserver
-        required: yes
+        required: no
       provisioning_network_configure:
         type: bool
         description: If changes to the network should be done
