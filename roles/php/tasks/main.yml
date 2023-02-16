@@ -2,14 +2,14 @@
 
 - name: Install php-fpm
   apt:
-    name: php-fpm
+    name: 'php{{ php-version }}-fpm'
     state: latest
     
 - name: Set larger maximum upload and post size
   lineinfile:
     regexp: '{{ item.name }} ='
     line: '{{ item.name }} = {{ item.value }}'
-    path: /etc/php/7.4/fpm/php.ini
+    path: '/etc/php/{{ php_version }}/fpm/php.ini'
   notify:
     - 'Restart php-fpm'
   loop:
@@ -22,7 +22,7 @@
 
 - name: Configure php-fpm to use msmtp for sending mail, disable fix_pathinfo
   lineinfile:
-    path: /etc/php/7.4/fpm/php.ini
+    path: '/etc/php/{{ php_version }}/fpm/php.ini'
     line: '{{ item.line }}'
     regexp: '{{ item.regexp }}'
   notify:
@@ -35,7 +35,7 @@
 
 - name: Enable service and start
   service:
-    name: php7.4-fpm
+    name: 'php{{ php_version }}-fpm'
     enabled: yes
   notify:
     - 'Restart php-fpm'

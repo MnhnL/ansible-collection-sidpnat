@@ -13,6 +13,10 @@ dependencies:
 argument_specs:
   main:
     options:
+      php_version:
+        type: str
+        description: The manjor and minor version like "7.4".
+      
       php_fpm_max_filesize:
         type: str
         description: The maximum upload and post filesize as allowed by php
