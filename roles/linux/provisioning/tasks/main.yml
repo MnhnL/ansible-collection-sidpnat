@@ -28,7 +28,7 @@
         comment: '{{ item.value.full_name }}'
         shell: /usr/bin/bash
         create_home: yes
-        groups: '{{ item.extra_groups | default("") }}'
+        groups: '{{ item.value.extra_groups | default("") }}'
         append: yes
       loop: '{{ provisioning_admin_users | dict2items }}'
 
@@ -54,15 +54,15 @@
       lineinfile:
         dest: /etc/ssh/sshd_config
         regexp: "^#PasswordAuthentication"
-        line: PasswordAuthentication no
+        line: "PasswordAuthentication no"
       # notify:
       #   - Restart sshd
       #   - Reset connection
 
-- name: Disable provisioning user
-  user:
-    name: provisioning
-    password: '!'
+# - name: Disable provisioning user
+#   user:
+#     name: provisioning
+#     password: '!'
 
 - name: Setup firewall
   tags: firewall
@@ -132,6 +132,7 @@
           - htop
           - httpie
           - ncdu
+          - screen
         state: present
 
     - name: Create a big empty files that makes freeing up space easy in an emergency
