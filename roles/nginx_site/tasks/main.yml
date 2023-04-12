@@ -36,6 +36,7 @@
     server_name: "{{ nginx_site_server_names|join(' ') }}"
     index: "{{ nginx_site_index }}"
     main_location: "{{ nginx_site_main_location }}"
+    main_location_directives: "{{ nginx_site_main_location_directives }}"
     upload_locations: "{{ nginx_site_upload_locations }}" # TODO: Put in all templates
     fourohfour_locations: "{{ nginx_site_404_locations }}"  # TODO: Put in all templates
     allow_locations: "{{ nginx_site_allow_locations }}" # TODO: Put in all templates

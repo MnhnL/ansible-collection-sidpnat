@@ -23,7 +23,7 @@ server {
     }
 
     location {{ main_location }} {
-        try_files $uri $uri/ /index.php =404;
+        {{ main_location_directives }}
     }
 
 {% for ul in upload_locations %}
