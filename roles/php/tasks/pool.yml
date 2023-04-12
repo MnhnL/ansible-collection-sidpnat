@@ -1,0 +1,41 @@
+---
+
+- name: Create group if necessary
+  group:
+    name: '{{ php_fpm_pool_group }}'
+    state: present
+
+- name: Create user if necessary
+  user:
+    name: '{{ php_fpm_pool_user }}'
+    state: present
+    shell: /sbin/nologin
+    create_home: false
+    comment: "Used to run php-fpm processes. This user has less permissions than www-data."
+    group: '{{ php_fpm_pool_group }}'
+
+- name: Backup default php-fpm pool file
+  copy:
+    src: '/etc/php/{{ php_version }}/fpm/pool.d/www.conf'
+    dest: '/etc/php/{{ php_version }}/fpm/pool.d/www.conf.bak'
+    remote_src: yes
+  ignore_errors: true # it's fine if this was done already
+
+- name: Remove default php-fpm pool file
+  file:
+    path: '/etc/php/{{ php_version }}/fpm/pool.d/www.conf'
+    state: absent
+    
+- name: Install php-fpm pool file
+  template:
+    src: php-fpm-pool.conf.j2
+    dest: '/etc/php/{{ php_version }}/fpm/pool.d/{{ php_fpm_pool_name }}.conf'
+  vars:
+    pool_name: '{{ php_fpm_pool_name }}'
+    pool_user: '{{ php_fpm_pool_user }}'
+    pool_group: '{{ php_fpm_pool_group }}'
+    pool_chroot: '{{ php_fpm_pool_chroot }}'
+    pool_sock: '{{ php_fpm_pool_sock }}'
+  notify:
+    - 'Restart php-fpm'
+    - 'Reload nginx'
