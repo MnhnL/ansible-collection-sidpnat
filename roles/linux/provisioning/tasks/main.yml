@@ -20,6 +20,11 @@
 - name: Accounts
   tags: users
   block:
+    - name: Ensure extra groups are present
+      ansible.builtin.group:
+        name: '{{ item[1] | default("") }}'
+        state: present
+      loop: '{{ provisioning_admin_users | dict2items | subelements("value.extra_groups") }}'              
     - name: Create admin users with empty passwords and add to extra groups
       user:
         state: present
@@ -28,7 +33,7 @@
         comment: '{{ item.value.full_name }}'
         shell: /usr/bin/bash
         create_home: yes
-        groups: '{{ item.value.extra_groups | default("") }}'
+        groups: '{{ item.value.extra_groups | default([]) }}'
         append: yes
       loop: '{{ provisioning_admin_users | dict2items }}'
 
