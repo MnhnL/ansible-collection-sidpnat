@@ -1,0 +1,14 @@
+---
+
+dependencies:
+  - role: mnhnl.sidpnat.nginx
+
+argument_specs:
+  main:
+    options:
+      irecord_app_directory:
+        type: str
+        required: yes
+      irecord_app_domain:
+        type: str
+        required: yes

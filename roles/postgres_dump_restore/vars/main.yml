@@ -1,0 +1,7 @@
+---
+
+postgres_dump_restore_backup_file_extension: pgc
+postgres_dump_restore_backup_file_name: '{{ postgres_dump_restore_source_db_name }}.{{ postgres_dump_restore_backup_file_extension }}'
+postgres_dump_restore_backup_directory: '{{ postgres_dump_restore_remote_backup_directory }}'
+postgres_dump_restore_backup_file_path: '{{ postgres_dump_restore_backup_directory }}/{{ postgres_dump_restore_backup_file_name }}'
+postgres_dump_restore_local_file_path: 'backups/{{ postgres_dump_restore_source_db_name }}.{{ postgres_dump_restore_backup_file_extension }}'

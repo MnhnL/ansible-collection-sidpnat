@@ -1,0 +1,112 @@
+---
+
+- name: Build irecord app locally
+  tags: [ irecord_app, irecord_app_build ]
+  environment:
+    APP_INDICIA_API_HOST: 'https://{{ drupal9_domain }}/'
+
+    APP_VERSION: 5.4.4
+    APP_BUILD: 1652277829623
+    APP_NAME: '{{ irecord_app_name }}'
+
+    APP_SENTRY_KEY: 'none'
+    APP_OS_MAP_KEY: 'none'
+    APP_INDICIA_API_KEY: '{{ irecord_app_indicia_api_key }}'
+    APP_MAPBOX_MAP_KEY: '{{ irecord_app_mapbox_api_key }}'
+    APP_WEBSITE_ID: '{{ irecord_app_website_id }}'
+
+    BITRISE_BUILD_NUMBER: 123123123 # make gruntfile happy
+
+    # APP_TRAINING: 0
+    # APP_MANUAL_TESTING: 0
+    # APP_SCREENSHOTS: 0
+    # APP_EXPERIMENTS: 0
+    # APP_GA: 0
+    # SAUCE_LABS: 0
+  block:
+    - name: Remove old repo
+      tags: [ npm ]
+      file:
+        path: /tmp/irecord-app
+        state: absent
+
+    - name: Clone into app repo
+      git:
+        repo: https://github.com/MnhnL/irecord-app.git
+        dest: /tmp/irecord-app
+        force: yes
+        version: mnhnl # master = rmancini, develop = jvanbreda
+
+    - name: HACK get rid of package-lock.json blocking
+      tags: [ npm ]
+      file:
+        path: /tmp/irecord-app/package-lock.json
+        state: absent
+
+    - name: Install all required dependencies
+      tags: [ npm ]
+      apt:
+        name: npm
+        state: present
+
+    - name: Install additional npm sources
+      tags: [ npm ]
+      command:
+        cmd: npm config set @bit:registry https://node.bit.dev/
+        chdir: /tmp/irecord-app
+
+    - name: Install npm deps
+      tags: [ npm ]
+      npm:
+        path: /tmp/irecord-app
+        unsafe_perm: yes # cos we run as root
+
+    - name: Install missing js deps
+      tags: [ npm ]
+      npm:
+        path: /tmp/irecord-app
+        name: node-sass
+        unsafe_perm: yes # cos we run as root
+
+    - name: Build the package
+      command:
+        cmd: npm run build
+        chdir: /tmp/irecord-app
+
+- name: Install irecord_app on server
+  tags: [ irecord_app, irecord_app_install ]
+  block:
+    - name: Copy to destination
+      copy:
+        remote_src: yes
+        src: /tmp/irecord-app/build/
+        dest: '{{ irecord_app_directory }}'
+        group: www-data
+        owner: www-data
+
+- name: Cleanup
+  tags: [ never ]
+  file:
+    path: /tmp/irecord-app
+    state: absent
+
+- name: Nginx configuration
+  tags: [ irecord_app_nginx ]
+  block:
+    - name: Install nginx site file
+      template:
+        src: irecord_app.j2
+        dest: /etc/nginx/sites-available/irecord_app
+      vars:
+        root: '{{ irecord_app_directory }}'
+        host: '{{ irecord_app_domain }}'
+      notify:
+        'Reload nginx'
+    
+    - name: Activate site
+      file:
+        src: /etc/nginx/sites-available/irecord_app
+        dest: /etc/nginx/sites-enabled/irecord_app
+        state: link
+      notify:
+        'Reload nginx'

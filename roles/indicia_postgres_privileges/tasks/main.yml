@@ -1,0 +1,95 @@
+---
+
+- name: Setup postgres privileges
+  become_user: postgres
+  block:
+    - name: Setup privileges of indicia user on indicia, public schema
+      postgresql_privs:
+        db: indicia
+        roles: indicia
+        type: schema
+        objs: '{{ item }}'
+        privs: USAGE
+        state: present
+      loop:
+        - public
+        - indicia
+        - mnhnl
+
+    - name: Setup privileges of indicia user on mnhnl schema
+      postgresql_privs:
+        db: indicia
+        schema: mnhnl
+        roles: indicia
+        type: table
+        objs: ALL_IN_SCHEMA
+        privs: SELECT
+        state: present
+
+    - name: Setup privileges of indicia user on public schema tables
+      postgresql_privs:
+        db: indicia
+        schema: public
+        roles: indicia
+        objs: ALL_IN_SCHEMA
+        type: '{{ item }}'
+        state: present
+        privs: ALL
+      loop:
+        - table
+        - sequence
+
+    - name: Setup privileges of indicia user on indicia schema tables
+      postgresql_privs:
+        db: indicia
+        schema: indicia
+        roles: indicia
+        objs: ALL_IN_SCHEMA
+        type: '{{ item }}'
+        state: present
+        privs: ALL
+      loop:
+        - table
+        - sequence
+
+    - name: Setup privileges of indicia user on indicia schema
+      postgresql_privs:
+        db: indicia
+        schema: public
+        roles: indicia
+        objs: st_astext(geometry),st_geomfromtext(text:int4),st_transform(geometry:int4)
+        type: function
+        state: present
+        privs: EXECUTE
+
+    - name: Setup privileges of indicia_report user on indicia schema
+      postgresql_privs:
+        db: indicia
+        roles: indicia_report
+        type: schema
+        objs: '{{ item }}'
+        privs: USAGE
+        state: present
+      loop:
+        - indicia
+        - public
+        - mnhnl
+
+    - name: Setup privileges of indicia_report user on indicia schema
+      postgresql_privs:
+        db: indicia
+        schema: '{{ item }}'
+        roles: indicia_report
+        type: table
+        objs: ALL_IN_SCHEMA
+        privs: SELECT
+        state: present
+      loop:
+        - indicia
+        - public
+        - mnhnl
+
+    - name: Transfer ownership of indicia_user stuff to indicia role
+      postgresql_query:
+        db: indicia
+        query: reassign owned by indicia_user to indicia

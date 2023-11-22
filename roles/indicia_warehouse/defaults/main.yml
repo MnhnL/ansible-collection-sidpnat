@@ -1,0 +1,4 @@
+---
+
+indicia_warehouse_deploy_directory: /srv/indicia_warehouse
+indicia_warehouse_directory: '{{ indicia_warehouse_deploy_directory }}/indicia'

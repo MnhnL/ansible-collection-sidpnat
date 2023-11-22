@@ -1,0 +1,31 @@
+---
+
+drupal9_directory: '{{ drupal9_deploy_directory }}/drupal9'
+drupal9_drush: '{{ drupal9_deploy_directory }}/drupal9/vendor/bin/drush'
+drupal9_official_modules:
+  - backup_migrate
+  - blazy
+  - bootstrap_layout_builder
+  - bootstrap_layouts
+  - bootstrap_styles
+  - ctools:^3.7
+  - entity
+  - entity_legal:^3.0@beta
+  - eu_cookie_compliance
+  - honeypot
+  - jquery_ui
+  - jquery_ui_tabs
+  - masquerade:^2.0@beta
+  - media_library_form_element
+  - media_library_theme_reset
+  - pathauto
+  - slick
+  - slick_ui
+  - slick_views
+  - social_media_links
+  - token
+  #- quickedit_quickedit:^1.0
+drupal9_addon_modules:
+  - content_translation
+  - locale
+  - language

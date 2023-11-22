@@ -1,0 +1,54 @@
+---
+
+dependencies:
+  - role: mnhnl.sidpnat.php
+    tags: [ php ]
+  - role: geerlingguy.composer
+    tags: [ php ]
+  - role: mnhnl.sidpnat.postgresql_postgis
+
+argument_specs:
+  main:
+    options:
+      indicia_warehouse_version:
+        type: str
+        required: yes
+      indicia_warehouse_default_database_password:
+        type: str
+        required: yes
+      indicia_warehouse_domains:
+        type: list
+        required: yes
+        description: The domains used in the indicia warehouse nginx config. The first is the main one, the others are alternatives in nginx config.
+      indicia_warehouse_drupal9_domain:
+        type: str
+        required: yes
+        description: The domain used to link to the drupal9 installation
+      indicia_warehouse_smtp_hostname:
+        type: str
+        required: yes
+      indicia_warehouse_smtp_user:
+        type: str
+        required: yes
+      indicia_warehouse_smtp_password:
+        type: str
+        required: yes
+      indicia_warehouse_email_from_address:
+        type: str
+        required: yes
+      indicia_warehouse_email_server_name:
+        type: str
+        required: yes
+        description: The instance name used in emails
+      indicia_warehouse_admin_email:
+        type: str
+        required: yes
+        description: The default administrator's (admin) email address
+      indicia_warehouse_admin_password:
+        type: str
+        required: yes
+        description: The default administrator's (admin) password
+      indicia_warehouse_private_key:
+        type: str
+        required: yes
+        description: Used for cohana frameworks web authentication

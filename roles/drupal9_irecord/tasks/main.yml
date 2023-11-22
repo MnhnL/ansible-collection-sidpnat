@@ -1,0 +1,133 @@
+---
+
+- name: Install indicia php dependencies
+  apt:
+    name: php-curl
+    state: latest
+
+- name: As www-data
+  become_user: www-data
+  block:
+    - name: Create composer cache directory
+      become_user: root
+      file:
+        path: /var/www/.cache
+        state: directory
+        owner: www-data
+
+    - name: Install bootstrap theme
+      composer:
+        command: require
+        arguments: drupal/bootstrap
+        working_dir: '{{ drupal9_directory }}'
+    
+    - name: Enable bootstrap theme
+      command: '{{ drupal9_drush }} theme:enable bootstrap -y'
+
+    - name: Install theme and modules
+      block:
+        - name: Create custom theme dir
+          file:
+            path: '{{ drupal9_directory }}/web/themes/custom/'
+            state: directory
+    
+        # FIXME: This can come from mnhn gitlab
+        # Cant't do this now since it's not public for now. Maybe create a provisioning user?
+        # https://gitlab.mnhn.lu/section-BD/internet/data-new.mnhn.lu-theme.git
+        - name: Install mnhnl_theme sub-theme
+          unarchive:
+            src: files/mnhnl_theme.tar.gz
+            copy: true
+            dest: '{{ drupal9_directory }}/web/themes/custom/'
+    
+        - name: Enable mnhnl_theme
+          command: '{{ drupal9_drush }} theme:enable mnhnl_theme -y'
+        
+        - name: Set mnhnl_theme as default theme
+          command: '{{ drupal9_drush }} config:set -y system.theme default mnhnl_theme'
+        
+        - name: Install required official modules
+          composer:
+            command: require
+            arguments: 'drupal/{{ item }}'
+            working_dir: '{{ drupal9_directory }}'
+          loop: '{{ drupal9_official_modules }}'
+        
+        - name: Enable required modules
+          command: "{{ drupal9_drush }} pm:enable -y {{ item.split(':')[0] }}"
+          loop: '{{ drupal9_official_modules + drupal9_addon_modules }}'
+    
+        - name: Custom modules
+          block:
+            - name: Ensure custome modules directory exists
+              file:
+                path: '{{ drupal9_directory }}/web/modules/custom'
+                state: directory
+            
+            - name: Install indicia modules
+              git:
+                repo: 'https://github.com/Indicia-Team/{{ item.repo }}'
+                dest: '{{ drupal9_directory }}/web/modules/custom/{{ item.dir }}'
+                force: yes
+                recursive: yes # also update submodules
+                version: '{{ item.version }}'
+              loop:
+                - repo: drupal-8-module-iform.git
+                  dir: iform
+                  version: '{{ drupal9_irecord_iform_version }}'
+                - repo: drupal-8-modules-indicia_features.git
+                  dir: indicia_features
+                  version: master
+                - repo: drupal-8-module-indicia-api
+                  dir: indicia_api
+                  version: v1
+            
+            - name: Install mnhnl_extras module
+              unarchive:
+                src: files/mnhnl_extras.tar.gz
+                copy: true
+                dest: '{{ drupal9_directory }}/web/modules/custom/'
+            
+            - name: Enable indicia modules
+              command:
+                cmd: '{{ drupal9_drush }} pm:enable -y {{ item }}'
+              loop:
+                - iform
+                - iform_ajaxproxy
+                - easy_login
+                - indicia_api
+                - mnhnl_extras
+    
+        - name: Install slick js files (carousel)
+          block:
+            - name: Ensure libraries directory exists
+              file:
+                path: '{{ drupal9_directory }}/web/libraries'
+                state: directory
+    
+            - name: Download slick files and unpack
+              unarchive:
+                remote_src: yes
+                src: 'https://github.com/kenwheeler/slick/archive/refs/tags/1.6.0.tar.gz'
+                dest: /tmp/
+    
+            - name: Ensure slick directory exists
+              file:
+                path: '{{ drupal9_directory }}/web/libraries/slick/slick'
+                state: directory
+    
+            - name: Install slick js file
+              copy:
+                remote_src: yes
+                src: '/tmp/slick-1.6.0/slick/{{ item }}'
+                dest: '{{ drupal9_directory }}/web/libraries/slick/slick/'
+              loop:
+                - slick.min.js
+                - slick.css
+                - slick-theme.css
+    
+            - name: Clean up
+              file:
+                path: /tmp/1.6.0.tar.gz
+                state: absent
+

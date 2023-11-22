@@ -1,0 +1,144 @@
+<?php
+
+/**
+ * Indicia, the OPAL Online Recording Toolkit.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see http://www.gnu.org/licenses/gpl.html.
+ *
+ * @author Indicia Team
+ * @license http://www.gnu.org/licenses/gpl.html GPL
+ * @link https://github.com/indicia-team/warehouse/
+ */
+
+/**
+ * Define the database ID used to identify this system in the network.
+ */
+$config['user_id'] = '{{ user_id }}';
+
+/**
+ * Dataset name attribute ID.
+ *
+ * Which sample attribute will we use to store the dataset name for records
+ * which came from remote systems?
+ */
+$config['dataset_name_attr_id'] = {{ dataset_name_attr_id }};
+
+/**
+ * Authentication methods allowed.
+ *
+ * Default options exclude direct passing of id and password which should be
+ * enabled on development servers only.
+ * * oauth2User - for authenticating warehouse user accounts to access their
+ *   own records via oauth, or with a filter_id to define a wider set of
+ *   records.
+ * * hmacClient - authorise a client in the list below using HMAC in the http
+ *   header
+ * * hmacWebsite - authorise as a website registered on the warehouse using
+ *   HMAC in the http header
+ * * directUser - allow the user ID and password to be passed directly.
+ * * directClient - allow the client system ID and shared secret to be passed
+ *   directly.
+ * * directWebsite - allow the website ID and password to be passed directly.
+ *
+ * Note that hmacUser is not supported as the password is hashed on the server
+ * so a hmac cannot be generated. Each key points to an array of options:
+ * * allow_http - this must be set if access over http (rather than https) is
+ *   going to be enabled. Use with caution in production environments.
+ * * resource_options - pass the name of a resource (e.g. reports) and an array
+ *   of flags to pass to the resource. Flags depend on the resource.
+ */
+$config['authentication_methods'] = [
+  'directClient' => [
+    'resource_options' => [
+      // Grants full access to all reports. Client configs can override this.
+      'reports' => [],
+      'elasticsearch' => ['es-search'],
+    ],
+  ],
+];
+
+/**
+ * Should authorisation tokens be allowed in the query parameters rather than the
+ * authorisation header? Recommended for development servers only.
+ */
+$config['allow_auth_tokens_in_url'] = FALSE;
+
+/**
+ * If this warehouse is configured to work with an Elasticsearch instance then
+ * the REST API can act as a proxy to avoid having to expose all the public
+ * APIs. The proxy can point to index aliases to limit the search filter.
+ */
+$config['elasticsearch'] = [
+  // Name of the end-point, e.g. /index.php/services/rest/es.
+  'es-search' => [
+    // Set open = TRUE if this end-point is available without authentication.
+    // Otherwise it must be attached to a configured client.
+    'open' => FALSE,
+    // Name of the elasticsearch index or alias this end-point points to.
+    'index' => 'indicia_occurrences_search',
+    // URL of the Elasticsearch index.
+    'url' => 'http://serv-gis.mnhn.etat.lu:9200',
+    // If specified, limit the access to the following operations. List of
+    // HTTP request types (e.g. get, post, put, delete) each containing a
+    // list of regular expressions for allowed requests, along with the
+    // description of what that allows.
+    // So, this example allows the following call:
+    // http://mywarehouse.com/index.php/services/rest/es/_search?q=taxon.name:quercus
+    // which proxies to
+    // http://my.elastic.url:9200/occurrence/_search?q=taxon.name:quercus
+    'allowed' => [
+      'get' => [
+        '/^_search/' => 'GET requests to the search API (/_search?...)',
+        '/^_mapping\/doc/' => 'GET requests to the mappings API (/_mapping?...)',
+      ],
+      'post' => [
+        '/^_search/' => 'POST requests to the search API (/_search?...)',
+        '/^doc\/.*\/_update/' => 'POSTed document updates',
+      ],
+    ],
+  ],
+];
+
+// The following configuration defines a list of clients for the REST API
+// (other than the intrinsic website registrations and warehouse user clients).
+// Each client has access to a number of projects which provide filtered access
+// to the records of a given website registration.
+// @todo Move this configuration into a database table.
+$config['clients'] = [
+  // Client list keyed by client ID.
+  'LOGSTASH' => [
+    'shared_secret' => 'f8sj45Sg*',
+    'projects' => [
+      // List of available projects keyed by project ID.
+      'ESLS' => [
+        'id' => 'ESLS',
+        'website_id' => 2,
+        'title' => 'Logstash',
+        'description' => 'Pull records for Elasticsearch.',
+        'sharing' => 'verification',
+        'autofeed' => TRUE,
+        'resource_options' => array(
+          // Featured reports but allow raw data access.
+          'reports' => array(
+            'authorise' => ['library/occurrences/list_for_elastic_all.xml'],
+          ),
+        ),
+      ],
+    ],
+    'elasticsearch' => [],
+  ],
+  'DTPT' => [
+    'shared_secret' => '{{ shared_secret }}',
+    'projects' => [],
+    'elasticsearch' => ['es-search'],
+  ],
+];

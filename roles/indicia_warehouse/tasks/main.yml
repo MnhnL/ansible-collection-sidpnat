@@ -1,0 +1,346 @@
+---
+
+- name: Install pgsql php extension
+  apt:
+    name:
+      - php-pgsql
+      - php-zip
+      - php-curl # for composer
+      - php-dom #
+      - php-gd #
+      - python3-psycopg2
+    state: present
+
+# - name: As postgres
+#   become_user: postgres
+#   block:
+#     - name: Create indicia database user
+#       postgresql_user:
+#         name: indicia
+#         password: '{{ indicia_warehouse_default_database_password }}'
+#         state: present
+#       vars:
+#         allow_world_readable_tmpfiles: true
+
+#     - name: Create indicia database report user
+#       postgresql_user:
+#         name: indicia_report
+#         password: '{{ indicia_warehouse_default_report_database_password }}'
+#         state: present
+
+#     - name: Create indicia database
+#       postgresql_db:
+#         name: indicia
+#         owner: indicia
+#         state: present
+
+#     - name: Create schemata
+#       postgresql_schema:
+#         name: '{{ item }}'
+#         db: indicia
+#         state: present
+#         owner: indicia
+#       loop:
+#         - indicia
+#         - topology
+
+#     - name: Install postgis in indicia database
+#       postgresql_ext:
+#         name: '{{ item }}'
+#         db: indicia
+#         schema: public
+#         state: present
+#       loop:
+#         - postgis
+#         - btree_gin
+
+#     - name: Install postgis in indicia database
+#       postgresql_ext:
+#         name: postgis_topology
+#         db: indicia
+#         schema: topology
+#         state: present
+
+#     - name: Privileges for postgres
+#       import_role:
+#         name: mnhnl.sidpnat.indicia_postgres_privileges
+
+- name: Ensure deploy directory exists
+  file:
+    name: '{{ indicia_warehouse_deploy_directory }}'
+    state: directory
+    owner: www-data
+    group: www-data
+
+- name: Nginx configuration
+  tags: nginx
+  include_role:
+    name: mnhnl.sidpnat.nginx_site
+  vars:
+    nginx_site_name: indicia_warehouse
+    nginx_site_type: fastcgi
+    nginx_site_index: index.html index.php
+    nginx_site_root: '{{ indicia_warehouse_directory }}'
+    nginx_site_server_names: '{{ indicia_warehouse_domains }}'
+    nginx_site_fastcgi_location: '~ \.php'
+    nginx_site_fastcgi_pass: 'unix:/var/run/php/php-fpm.sock'
+    nginx_site_https: yes
+    nginx_site_https_hosts: ['{{ indicia_warehouse_domains[0] }}']
+    nginx_site_domain_contact_email: '{{ domain_contact_email }}'
+    nginx_site_upload_locations: # No php executed from here
+      - /upload
+      - /upload-pipe
+    nginx_site_state: enabled
+
+- name: Flush handlers in order to be able to configure through http
+  meta: flush_handlers
+
+- name: As www-data
+  become_user: www-data
+  block:
+    - name: Install indicia warehouse code in tmp
+      git:
+        repo: 'https://github.com/Indicia-Team/warehouse.git'
+        version: '{{ indicia_warehouse_version }}'
+        dest: /tmp/indicia_warehouse
+        force: yes
+        recursive: yes # submodules
+
+    - name: Ensure dir exists
+      file:
+        path: '{{ indicia_warehouse_directory }}'
+        state: directory
+
+    - name: Fix dest permissions
+      file:
+        path: '{{ indicia_warehouse_directory }}/modules/indicia_setup/db/'
+        mode: u+w
+        recurse: yes
+
+    - name: Copy code to dest
+      shell: 'cp -r /tmp/indicia_warehouse/* {{ indicia_warehouse_directory }}/'
+
+    - name: Fix dest permissions
+      file:
+        path: '{{ indicia_warehouse_directory }}/modules/indicia_setup/db/'
+        mode: u-w
+        recurse: yes
+
+    - name: Install composer json hack. FIXME; integrate in upstream repo
+      copy:
+        src: composer.json
+        dest: '{{ indicia_warehouse_directory }}/composer.json'
+
+    - name: Fix permissions
+      file:
+        path: '{{ indicia_warehouse_directory }}{{ item }}'
+        mode: -w
+        state: directory
+      loop:
+        - /reports
+        - /reports/trigger_templates
+        - /modules/indicia_setup/db
+
+    - name: Create composer cache directory
+      become_user: root
+      file:
+        path: /var/www/.cache
+        state: directory
+        owner: www-data
+
+    - name: Update composer (don't know why though)
+      composer:
+        command: update
+        working_dir: '{{ indicia_warehouse_directory }}'
+
+    - name: Install dependencies
+      composer:
+        command: install
+        arguments: --no-dev
+        working_dir: '{{ indicia_warehouse_directory }}'
+
+    - name: Configure helper
+      template:
+        src: helper_config.php.j2
+        dest: '{{ indicia_warehouse_directory }}/client_helpers/helper_config.php'
+      vars:
+        warehouse_domain: '{{ indicia_warehouse_domains[0] }}'
+
+    - name: Create data upload dir
+      file:
+        path: '{{ indicia_warehouse_directory }}/client_helpers/upload'
+        state: directory
+
+    - name: Configure email notifications
+      template:
+        src: notification_emails.php.j2
+        dest: '{{ indicia_warehouse_directory }}/modules/notification_emails/config/notification_emails.php'
+      vars:
+        system_name: '{{ indicia_warehouse_email_server_name }}'
+        sender_email: '{{ indicia_warehouse_email_from_address }}'
+        link_base_url: 'https//{{ indicia_warehouse_drupal9_domain }}'
+
+    - name: Configure cache_builder module
+      template:
+        src: cache_builder_variables.php.j2
+        dest: '{{ indicia_warehouse_directory }}/modules/cache_builder/config/cache_builder_variables.php'
+      vars:
+        master_list_id: '{{ indicia_warehouse_master_list_id }}'
+
+    - name: Configure rest_api module
+      template:
+        src: rest.php.j2
+        dest: '{{ indicia_warehouse_directory }}/modules/rest_api/config/rest.php'
+      vars:
+        user_id: '{{ indicia_warehouse_rest_api_user_id }}'
+        dataset_name_attr_id: '{{ indicia_warehouse_rest_api_dataset_name_attr_id }}'
+        shared_secret: '{{ indicia_warehouse_rest_api_shared_secret }}'
+
+    - name: Configure rest_api_sync module
+      template:
+        src: rest_api_sync.php.j2
+        dest: '{{ indicia_warehouse_directory }}/modules/rest_api_sync/config/rest_api_sync.php'
+
+    - name: Configure workflow module
+      template:
+        src: workflow.php.j2
+        dest: '{{ indicia_warehouse_directory }}/modules/workflow/config/workflow.php'
+
+    - name: Configure workflow module (groups)
+      template:
+        src: workflow_groups.php.j2
+        dest: '{{ indicia_warehouse_directory }}/modules/workflow/config/workflow_groups.php'
+
+    - name: Prepare trigger_templates directory
+      file:
+        mode: u+w
+        dest: '{{ indicia_warehouse_directory }}/reports/trigger_templates/'
+        state: directory
+
+    - name: Install trigger_templates
+      copy:
+        src: taxon_meaning.xml
+        dest: '{{ indicia_warehouse_directory }}/reports/trigger_templates/'
+
+    - name: Make trigger_templates dir ro
+      file:
+        path: '{{ indicia_warehouse_directory }}/reports/trigger_templates/'
+        mode: 'u-w'
+        state: directory
+
+        ## FIXME: breaks 
+    # - name: Skip email config
+    #   uri:
+    #     url: 'http://{{ indicia_warehouse_domains[0] }}/index.php/setup_check/do_skip_email'
+    #     method: GET
+    #     follow_redirects: all
+    #     status_code:
+    #       - 200
+    #       - 404 # might not work since https not working?
+
+#     - name: Setup check
+#       uri:
+#         url: 'http://{{ indicia_warehouse_domains[0] }}/index.php/setup_check'
+#         method: GET
+#         follow_redirects: all
+#         status_code:
+#           - 200
+#           - 404 # might not work since https not working?
+
+    ## FIXME: Do this though template
+    # - name: Configure database through http
+    #   uri:
+    #     url: 'http://{{ indicia_warehouse_domains[0] }}/index.php/setup_check/config_db_save'
+    #     method: POST
+    #     body_format: form-urlencoded
+    #     body:
+    #       host: localhost
+    #       port: '5432'
+    #       database: indicia
+    #       schema: indicia
+    #       dbuser: indicia
+    #       dbpassword: '{{ indicia_warehouse_default_database_password }}'
+    #       reportuser: indicia_report
+    #       reportpassword: '{{ indicia_warehouse_default_report_database_password }}'
+    #       start_setup_button: Submit
+    #     return_content: yes
+    #     follow_redirects: all
+    #     status_code:
+    #       - 200
+    #       - 404 # might not work since https not working?
+
+    - name: Install config file
+      template:
+        src: config.php.j2
+        dest: '{{ indicia_warehouse_directory }}/application/config/config.php'
+      vars:
+        warehouse_domain: '{{ indicia_warehouse_domains[0] }}'
+
+    - name: Install indicia config file
+      template:
+        src: indicia.php.j2
+        dest: '{{ indicia_warehouse_directory }}/application/config/indicia.php'
+      vars:
+        private_key: '{{ indicia_warehouse_private_key }}'
+        master_list_id: '{{ indicia_warehouse_master_list_id }}' 
+
+    - name: Configure email
+      template:
+        src: email.php.j2
+        dest: '{{ indicia_warehouse_directory }}/application/config/email.php'
+      vars:
+        hostname: '{{ indicia_warehouse_smtp_hostname }}'
+        username: '{{ indicia_warehouse_smtp_user }}'
+        password: '{{ indicia_warehouse_smtp_password }}'
+        from_address: '{{ indicia_warehouse_email_from_address }}'
+        server_name: '{{ indicia_warehouse_email_server_name }}'
+
+    - name: Initial user config and upgrade db. Only needed on clean install
+      block:
+      - name: Login with default admin user
+        uri: 
+          url: 'http://{{ indicia_warehouse_domains[0] }}/index.php/login'
+          method: POST
+          body_format: form-urlencoded
+          body:
+            user: admin
+            password: '{{ indicia_warehouse_admin_password }}'
+          follow_redirects: all
+          status_code:
+            - 200
+            - 404 # might not work dunno why?
+        register: login
+
+    #   - name: Change admin password (if login with default user successful)
+    #     uri:
+    #       url: 'http://{{ indicia_warehouse_domains[0] }}/index.php/new_password/save'
+    #       method: POST
+    #       body_format: form-urlencoded
+    #       body:
+    #         id: '1'
+    #         email_key: ''
+    #         username: admin
+    #         email_address: '{{ indicia_warehouse_admin_email }}'
+    #         password: '{{ indicia_warehouse_admin_password }}'
+    #         password2: '{{ indicia_warehouse_admin_password }}'
+    #       headers:
+    #         Cookie: "{{ login.cookies_string }}"
+    #       follow_redirects: all
+    #     when: login.cookies_string is defined
+      
+      - name: Upgrade db (if login with default user successful)
+        uri:
+          url: 'http://{{ indicia_warehouse_domains[0] }}/index.php/home/upgrade'
+          method: GET
+          headers:
+            Cookie: "{{ login.cookies_string }}"
+        when: login.cookies_string is defined
+
+- name: Set up cronjob that runs scheduled task
+  cron:
+    name: Run indicia scheduled tasks
+    minute: '*/15'
+    job: '/usr/bin/php {{ indicia_warehouse_directory }}/index.php scheduled_tasks'
+    state: present
+    disabled: no
+  become_user: www-data

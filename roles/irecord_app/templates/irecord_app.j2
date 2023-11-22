@@ -1,0 +1,13 @@
+server {
+  listen 80;
+  listen [::]:80;
+
+  server_name {{ irecord_app_domain }};
+
+  root {{ irecord_app_directory }};
+  index index.html;
+
+  location / {
+    try_files $uri /index.html;
+  }
+}

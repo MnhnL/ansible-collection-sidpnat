@@ -1,0 +1,138 @@
+---
+
+- name: dump and download
+  when: inventory_hostname == postgres_dump_restore_source_host
+  tags: [dump]
+  block:
+    - name: Create src backup directory
+      file:
+        path: '{{ postgres_dump_restore_backup_directory }}'
+        mode: 0700
+        owner: postgres
+        state: directory
+
+    # IMPORTANT: Ignore some schemas using -N (ie. public which has postgis)
+    - name: Create backup
+      postgresql_db:
+        state: dump
+        name: '{{ postgres_dump_restore_source_db_name }}'
+        login_password: '{{ postgres_dump_restore_source_db_password }}'
+        target: '{{ postgres_dump_restore_backup_file_path }}'
+        target_opts: '-Fc -b -v -x -O -N public -N import_temp -N attr_snapshots'
+      become: yes
+      become_user: postgres
+
+    - name: Fetch backup from the server
+      fetch:
+        src: '{{ postgres_dump_restore_backup_file_path }}'
+        dest: '{{ postgres_dump_restore_local_file_path }}'
+        flat: yes
+
+- name: upload and prepare
+  when: inventory_hostname == postgres_dump_restore_destination_host
+  tags: [upload]
+  block:
+    - name: Create dest backup directory
+      file:
+        path: '{{ postgres_dump_restore_backup_directory }}'
+        mode: 0700
+        owner: postgres
+        state: directory
+
+    - name: Copy backup to the server
+      copy:
+        src: '{{ postgres_dump_restore_local_file_path }}'
+        dest: '{{ postgres_dump_restore_backup_file_path }}'
+
+- name: Datanbase stuff (as postgres)
+  when: inventory_hostname == postgres_dump_restore_destination_host
+  become_user: postgres
+  tags: [restore]
+  block:
+    - name: Install psycopg2 (for postgresql_db)
+      apt:
+        name: python3-psycopg2
+        state: present
+      become_user: root
+
+    - name: Drop db
+      postgresql_db:
+        state: absent
+        name: '{{ postgres_dump_restore_destination_db_name }}'
+
+    - name: Create empty db
+      postgresql_db:
+        state: present
+        name: '{{ postgres_dump_restore_destination_db_name }}'
+
+    - name: Install postgis
+      postgresql_ext:
+        db: indicia
+        name: postgis
+        state: present
+
+    # FIXME: some stuff belongs to this user for whatever reason. THis does not belong in this role
+    - name: Create token role
+      postgresql_user:
+        name: indicia_user
+        state: present
+ 
+    - name: Restore the database
+      postgresql_db:
+        state: restore
+        name: '{{ postgres_dump_restore_destination_db_name }}'
+        target: '{{ postgres_dump_restore_backup_file_path }}'
+        target_opts: '--exit-on-error --single-transaction'
+      
+    - name: Setup privileges of indicia user on indicia schema
+      tags: [postgres_privileges]
+      postgresql_privs:
+        db: indicia
+        roles: indicia
+        type: schema
+        objs: indicia
+        privs: USAGE
+        state: present
+
+    - name: Setup privileges of indicia user on indicia schema tables
+      tags: [postgres_privileges]
+      postgresql_privs:
+        db: indicia
+        schema: indicia
+        roles: indicia
+        objs: ALL_IN_SCHEMA
+        type: '{{ item }}'
+        state: present
+        privs: ALL
+      loop:
+        - table
+        - sequence
+
+    - name: Setup privileges of indicia_report user on indicia schema
+      tags: [postgres_privileges]
+      postgresql_privs:
+        db: indicia
+        roles: indicia_report
+        type: schema
+        objs: '{{ item }}'
+        privs: USAGE
+        state: present
+      loop:
+        - indicia
+        - public
+
+    - name: Setup privileges of indicia_report user on indicia schema
+      tags: [postgres_privileges]
+      postgresql_privs:
+        db: indicia
+        schema: '{{ item }}'
+        roles: indicia_report
+        type: table
+        objs: ALL_IN_SCHEMA
+        privs: SELECT
+        state: present
+      loop:
+        - indicia
+        - public
+
+# TODO: Migrate by running: http://indicia-staging.mnhn.lu/index.php/home/upgrade
