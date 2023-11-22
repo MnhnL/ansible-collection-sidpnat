@@ -2,9 +2,13 @@ server {
     listen 80{% if default_server %} default_server{% endif %};
     listen [::]:80{% if default_server %} default_server{% endif %};
 
+{% if root %}
     root {{ root }};
+{% endif %}
 
+{% if index %}
     index {{ index }};
+{% endif %}
 
     server_name {{ server_name }};
 
@@ -12,8 +16,10 @@ server {
     	proxy_pass {{ proxy_pass }};
     }
 
+{% if main_location %}
     # redirect root to application
     location {{ main_location }} {
         return 301 {{ proxy_redirect_main_to }};
     }
+{% endif %}
 }

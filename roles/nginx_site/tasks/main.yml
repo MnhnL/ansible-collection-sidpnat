@@ -32,11 +32,11 @@
 - name: Install site file
   vars:
     default_server: "{{ nginx_site_default_server }}"
-    root: "{{ nginx_site_root }}"
+    root: "{{ nginx_site_root|default(None) }}"
     server_name: "{{ nginx_site_server_names|join(' ') }}"
-    index: "{{ nginx_site_index }}"
-    main_location: "{{ nginx_site_main_location }}"
-    main_location_directives: "{{ nginx_site_main_location_directives }}"
+    index: "{{ nginx_site_index|default(None) }}"
+    main_location: "{{ nginx_site_main_location|default(None) }}"
+    main_location_directives: "{{ nginx_site_main_location_directives|default(None) }}"
     upload_locations: "{{ nginx_site_upload_locations }}" # TODO: Put in all templates
     fourohfour_locations: "{{ nginx_site_404_locations }}"  # TODO: Put in all templates
     allow_locations: "{{ nginx_site_allow_locations }}" # TODO: Put in all templates
@@ -63,9 +63,9 @@
       src: site_proxy.j2
       dest: "/etc/nginx/sites-available/{{ nginx_site_name }}"
     vars:
-      proxy_pass: "{{ nginx_site_proxy_pass }}"
-      proxy_location: "{{ nginx_site_proxy_location }}"
-      proxy_redirect_main_to: "{{ nginx_site_proxy_redirect_main_to }}"
+      proxy_pass: "{{ nginx_site_proxy_pass|default(None) }}"
+      proxy_location: "{{ nginx_site_proxy_location|default(None) }}"
+      proxy_redirect_main_to: "{{ nginx_site_proxy_redirect_main_to|default(None) }}"
     when: nginx_site_type == 'proxy'
   
   - name: Install site file from template (fastcgi)
