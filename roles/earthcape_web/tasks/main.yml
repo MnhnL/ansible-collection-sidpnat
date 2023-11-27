@@ -1,0 +1,98 @@
+---
+- name: Ensure install dir exists
+  file:
+    path: '{{ earthcape_web_directory }}'
+    state: directory
+    owner: root
+    group: root
+    mode: 'u=rx,g=rx,o=rwx'
+
+- name: Install dependencies
+  apt:
+    name:
+      - dotnet6
+      - libgdiplus
+      - unzip # only for unpacking
+    state: present
+
+- name: Transfer and extract
+  unarchive:
+    src: transfer/earthcape.zip
+    dest: '{{ earthcape_web_directory }}'
+
+- name: Copy 
+  copy:
+    src: '{{ earthcape_web_directory }}/publish/'
+    dest: '{{ earthcape_web_directory }}'
+    remote_src: true
+
+- name: remove old dir
+  file:
+    path: '{{ earthcape_web_directory }}/publish'
+    state: absent
+
+- name: Make executable
+  file:
+    path: '{{ earthcape_web_directory }}/EarthCape.Blazor.Server'
+    mode: u+x
+
+- name: Configure
+  replace:
+    path: '{{ earthcape_web_directory }}/appsettings.json'
+    regexp: '{{ item.key }}'
+    replace: '{{ item.value }}'
+  loop:
+    - key: localhost
+      value: '{{ earthcape_web_db_host }}'
+    - key: 'User ID=postgres'
+      value: 'User ID={{ earthcape_web_db_user }}'
+    - key: 'delphius'
+      value: '{{ earthcape_web_db_password }}'
+    - key: earthcape_mnhnl
+      value: '{{ earthcape_web_db_database }}'
+
+- name: Enable UNIX support for drawing with GDI+
+  template:
+      src: EarthCape.Blazor.Server.runtimeconfig.json.j2
+      dest: '{{ earthcape_web_directory }}/EarthCape.Blazor.Server.runtimeconfig.json'
+
+- name: As Root
+  become_user: root
+  block:
+  - name: Install service file
+    template:
+      src: earthcape_web.service.j2
+      dest: /etc/systemd/system/earthcape_web.service
+    vars:
+      user: root
+      group: root
+      working_directory: '{{ earthcape_web_directory }}'
+      work_dir: '{{ earthcape_web_directory }}'
+      command: '{{ earthcape_web_directory }}/EarthCape.Blazor.Server'
+  
+  - name: Load new unit
+    command: systemctl daemon-reload
+  
+  - name: Enable and run earthcape_web
+    service:
+      name: earthcape_web
+      state: restarted
+      enabled: yes
+
+  - name: Install nginx
+    import_role:
+      name: mnhnl.sidpnat.nginx
+      
+  - name: Install nginx site file
+    import_role:
+      name: mnhnl.sidpnat.nginx_site
+    vars:
+      nginx_site_name: '{{ earthcape_web_domain }}'
+      nginx_site_type: proxy
+      nginx_site_default_server: yes
+      nginx_site_proxy_location: /
+      nginx_site_proxy_pass: 'http://localhost:5000'
+      nginx_site_server_names: [ localhost, '{{ earthcape_web_domain}}' ]
+      nginx_site_state: enabled
+      nginx_site_https: no
+    

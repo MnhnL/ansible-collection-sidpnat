@@ -1,0 +1,16 @@
+[Unit]
+Description=EarthCape Web
+After=syslog.target
+After=network.target
+
+[Service]
+RestartSec=2s
+Type=simple
+User={{ user }}
+Group={{ group }}
+WorkingDirectory={{ working_directory }}
+ExecStart={{ command }}
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
