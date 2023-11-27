@@ -16,7 +16,7 @@ server {
     	proxy_pass {{ proxy_pass }};
     }
 
-{% if main_location %}
+{% if main_location and main_location != proxy_location %}
     # redirect root to application
     location {{ main_location }} {
         return 301 {{ proxy_redirect_main_to }};
