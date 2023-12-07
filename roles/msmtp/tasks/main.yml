@@ -4,7 +4,9 @@
   block:
     - name: Install msmtp as replacement for sendmail
       apt:
-        name: msmtp
+        name:
+          - msmtp
+          - msmtp-mta # creates symlink from /usr/sbin/sendmail to msmtp
         state: present
 
     - name: Install msmtprc config file
