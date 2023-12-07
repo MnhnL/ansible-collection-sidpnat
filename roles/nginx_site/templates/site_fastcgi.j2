@@ -44,4 +44,7 @@ server {
     }
 {% endfor %}
 
+{% if extra_location %}
+{{ extra_location }}
+{% endif %}
 }

@@ -27,4 +27,8 @@ server {
     location {{ main_location }} {
         {{ main_location_directives }}
     }
+
+    {% if extra_location %}
+    {{ extra_location }}
+    {% endif %}
 }

@@ -22,4 +22,8 @@ server {
         return 301 {{ proxy_redirect_main_to }};
     }
 {% endif %}
+
+{% if extra_location %}
+{{ extra_location }}
+{% endif %}
 }

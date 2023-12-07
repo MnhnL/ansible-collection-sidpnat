@@ -40,6 +40,7 @@
     upload_locations: "{{ nginx_site_upload_locations }}" # TODO: Put in all templates
     fourohfour_locations: "{{ nginx_site_404_locations }}"  # TODO: Put in all templates
     allow_locations: "{{ nginx_site_allow_locations }}" # TODO: Put in all templates
+    extra_location: "{{ nginx_site_extra_location }}" # TODO: Put in all templates (only in proxy atm)
   when: nginx_site_state == 'enabled'
   block:
   - name: Install site file from template (static)
