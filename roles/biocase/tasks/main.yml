@@ -6,6 +6,7 @@
       - fcgiwrap # Needed since nginx does not know how to do CGI, only FastCGI
       - graphviz
       - python3-pymssql
+      - python3-pyodbc
     state: present
 
 - name: Ensure fcgiwrap service conf directory exists
