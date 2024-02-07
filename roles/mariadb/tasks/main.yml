@@ -30,3 +30,4 @@
     remove_anonymous_user: true
     disallow_root_login_remotely: true
     remove_test_db: true
+  when: mariadb_root_password != ''
