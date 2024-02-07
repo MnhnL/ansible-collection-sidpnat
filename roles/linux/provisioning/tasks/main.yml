@@ -17,6 +17,12 @@
     path: /etc/hostname
     line: "{{ provisioning_new_hostname | default(inventory_hostname) }}"
 
+- name: Set hostname in hosts file
+  replace:
+    path: /etc/hosts
+    regexp: 'debian'
+    replace: '{{ provisioning_new_hostname | default(inventory_hostname) }}'
+
 - name: Accounts
   tags: users
   block:
@@ -72,6 +78,11 @@
 - name: Setup firewall
   tags: firewall
   block:
+    - name: Install UFW (debian does not have it by default)
+      apt:
+        name: ufw
+        state: present
+    
     - name: Reset Firewall
       ufw: {state: reset}
 
@@ -114,7 +125,7 @@
         dhcp: "{{ provisioning_network_dhcp | default(false) }}"
       # notify:
       #   - 'Apply netplan'
-  when: provisioning_network_configure
+  when: provisioning_network_configure and not provisioning_network_dhcp
 
 - name: Update installation
   tags: software
