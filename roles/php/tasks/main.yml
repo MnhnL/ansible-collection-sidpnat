@@ -1,8 +1,10 @@
 ---
 
-- name: Install php-fpm
+- name: Install php-fpm and php
   apt:
-    name: 'php{{ php_version }}-fpm'
+    name:
+      - 'php{{ php_version }}-fpm'
+      - 'php{{ php_version }}'
     state: latest
     
 - name: Set larger maximum upload and post size
