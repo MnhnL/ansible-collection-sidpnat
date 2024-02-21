@@ -95,4 +95,4 @@
       nginx_site_server_names: [ localhost, '{{ earthcape_web_domain}}' ]
       nginx_site_state: enabled
       nginx_site_https: no
-    
+      nginx_site_extra_location: ''
